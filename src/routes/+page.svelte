@@ -659,7 +659,7 @@
         max-width: 600px;
         padding: 0;
         pointer-events: auto;
-        transition: all 0.3s ease-in-out;
+        transition: all 0.3s ease-out;
     }
 
     .search-container.searched {
@@ -937,7 +937,7 @@
         cursor: pointer;
         z-index: 20;
         pointer-events: auto;
-        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.3s ease-out;
         filter: drop-shadow(0px 4px 16px rgba(0, 0, 0, 1));
     }
 
@@ -1313,6 +1313,9 @@
 
     /* Responsive */
     @media (max-width: 768px) {
+        .landing-background {
+            background-position: left;
+        }
         .logo-button {
             top: 20%;
         }
