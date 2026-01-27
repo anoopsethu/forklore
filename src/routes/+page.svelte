@@ -674,8 +674,8 @@
     }
 
     .search-container.searched :global(.search-input) {
-        font-size: 1rem !important;
-        padding: 0.5rem 0.5rem 0.5rem 1rem !important;
+        font-size: 1rem;
+        padding: 0.5rem 0.5rem 0.5rem 1rem;
     }
 
     .search-container.searched :global(.search-button :global(svg)) {
@@ -684,7 +684,7 @@
     }
 
     .search-container.searched :global(.search-ticker) {
-        font-size: 1rem !important;
+        font-size: 1rem;
     }
 
     .search-form {
@@ -1409,7 +1409,7 @@
             padding: 0.7rem 0.7rem 0.7rem 1.2rem;
         }
         .search-ticker {
-            font-size: 1.2rem;
+            font-size: 1.2rem !important;
             left: 3.25rem;
         }
         :global(.search-input) {
@@ -1525,6 +1525,7 @@
             width: 70vw;
             height: 100%; /* Fill panel height */
             scroll-snap-align: center;
+            scroll-snap-stop: always;
             margin-bottom: 0 !important;
             display: flex;
             flex-direction: column; /* Ensure vertical stretching of children */
