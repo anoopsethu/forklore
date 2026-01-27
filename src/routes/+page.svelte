@@ -273,8 +273,8 @@
         {#if !hasSearched}
             <div class="landing-header" out:fade={{ duration: 300 }}>
                 <p class="landing-tagline">
-                    Discover the fascinating journey of your favorite<br />foods
-                    through time and space
+                    Discover the origins and evolution of your favorite dishes
+                    through time & space
                 </p>
             </div>
         {/if}
@@ -1075,7 +1075,7 @@
         position: absolute;
         left: 10px;
         top: 1.5rem;
-        bottom: 120px;
+        bottom: 185px;
         width: 1px;
         border-left: 2px dashed rgba(255, 255, 255, 0.15);
         z-index: 0;
@@ -1191,7 +1191,7 @@
         color: rgba(255, 255, 255, 0.8);
         font-size: 1rem;
         line-height: 1.6;
-        padding-bottom: 1.5rem;
+        /* padding-bottom: 1.5rem; */
     }
 
     /* Skeleton Loading - Timeline Format */
@@ -1332,9 +1332,9 @@
             top: 30%;
         }
         .landing-tagline {
-            font-size: 1rem;
-            line-height: 1.4;
-            padding: 0 1rem;
+            font-size: 1.2rem;
+            line-height: 1.5;
+            padding: 0;
         }
         .search-container {
             top: 42%;
@@ -1403,14 +1403,14 @@
         }
 
         .search-container:not(.searched) .search-wrapper {
-            padding: 0.4rem 0.4rem 0.4rem 1.25rem;
+            padding: 0.7rem 0.7rem 0.7rem 1.2rem;
         }
         .search-ticker {
-            font-size: 1rem;
+            font-size: 1.2rem;
             left: 3.25rem;
         }
         :global(.search-input) {
-            font-size: 1rem !important;
+            font-size: 1.2rem !important;
             padding: 0.5rem !important;
         }
         .search-container:not(.searched) :global(.search-button) {
