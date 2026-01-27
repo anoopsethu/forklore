@@ -361,25 +361,19 @@
                     <div class="feature-icon-wrapper">
                         <img src="/map-emoji.png" class="w-16" alt="" />
                     </div>
-                    <p class="feature-text">
-                        Travel through time<br />and taste
-                    </p>
+                    <p class="feature-text">Travel through time and taste</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon-wrapper">
                         <img src="/sparkles-emoji.png" class="w-16" alt="" />
                     </div>
-                    <p class="feature-text">
-                        Uncover hidden<br />stories instantly
-                    </p>
+                    <p class="feature-text">Uncover hidden stories instantly</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon-wrapper">
                         <img src="/lollipop-emoji.png" class="w-16" alt="" />
                     </div>
-                    <p class="feature-text">
-                        Watch the journey<br />come alive
-                    </p>
+                    <p class="feature-text">Watch the journey come alive</p>
                 </div>
             </div>
         {/if}
@@ -564,6 +558,7 @@
         position: relative;
         width: 100vw;
         height: 100vh;
+        height: 100dvh;
         overflow: hidden;
     }
 
@@ -1358,9 +1353,16 @@
             padding: 0.4rem 0.6rem 0.4rem 1rem;
         }
         .features-container {
-            top: 50%;
-            gap: 0.75rem;
-            padding: 0 1rem;
+            top: 52%;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 1.5rem;
+            gap: 1rem;
+            width: calc(100% - 2rem);
+            max-width: 380px;
         }
         .step-description {
             padding-left: 0;
@@ -1373,30 +1375,31 @@
             );
         }
         .feature-card {
-            width: calc(50% - 0.4rem);
-            min-width: 0;
-            padding: 1.25rem 0.75rem;
-            border-radius: 20px;
-            gap: 0.5rem;
-            background: rgba(0, 0, 0, 0.7);
+            width: 100% !important;
+            flex-direction: row !important;
+            justify-content: flex-start !important;
+            text-align: left !important;
+            padding: 0 !important;
+            gap: 1rem !important;
+            background: transparent !important;
+            border: none !important;
+            transform: none !important;
         }
-        /* Make the 3rd card take full width */
         .feature-card:last-child {
-            width: 100%;
-            flex-direction: row;
-            justify-content: center;
-            padding: 1rem;
-            gap: 1rem;
+            width: 100% !important;
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
         }
         :global(.feature-icon-wrapper img) {
-            width: 40px !important;
+            width: 32px !important;
         }
         .feature-text {
-            font-size: 0.8125rem;
-            line-height: 1.2;
-        }
-        .feature-card:last-child .feature-text {
+            font-size: 1rem;
+            line-height: 1.4;
+            color: rgba(255, 255, 255, 0.8);
             text-align: left;
+            font-weight: 400;
         }
 
         .search-container:not(.searched) .search-wrapper {
@@ -1473,7 +1476,7 @@
             overflow-x: auto;
             overflow-y: hidden;
             scroll-snap-type: x mandatory;
-            padding: 0 1.5rem 1rem; /* More bottom padding to avoid sticking */
+            padding: 0 1.5rem calc(1rem + env(safe-area-inset-bottom)); /* Respect safe area on mobile */
             gap: 1.25rem;
             flex: 1;
             align-items: stretch; /* Stretch items vertically to match tallest */
@@ -1556,6 +1559,7 @@
 
         .skeleton-timeline {
             width: fit-content;
+            margin-top: 0;
         }
 
         .skeleton-timeline .skeleton-entry {
