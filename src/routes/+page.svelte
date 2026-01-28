@@ -1326,7 +1326,7 @@
             height: 40px;
         }
         .corner-logo .landing-logo {
-            height: 28px;
+            height: 26px;
         }
         .landing-header {
             top: 30%;
@@ -1341,7 +1341,7 @@
             padding: 0 1rem;
         }
         .search-container.searched {
-            top: 4.5rem; /* Positioned below the centered corner logo */
+            top: 4rem; /* Positioned below the centered corner logo */
             left: 1rem;
             right: 1rem;
             width: auto;
@@ -1355,8 +1355,8 @@
         .features-container {
             top: 52%;
             flex-direction: column;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(16px);
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(6px);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 24px;
             padding: 1.5rem;
