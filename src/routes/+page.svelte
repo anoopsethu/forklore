@@ -384,20 +384,17 @@
                 {#if isMobile}
                     {#if dishHistory}
                         <div class="mobile-dish-header" in:fade>
-                            <span class="mobile-dish-emoji"
-                                >{dishHistory.emoji}</span
-                            >
                             <h2 class="mobile-dish-title">
+                                {dishHistory.emoji}
                                 {dishHistory.title}
                             </h2>
                         </div>
                     {:else if isSearching}
                         <div
                             class="mobile-dish-header skeleton-entry"
-                            style="--delay: 0ms"
+                            style="--delay: 0ms; gap: 0.5rem;"
                         >
-                            <Skeleton class="w-10 h-10 rounded-full" />
-                            <Skeleton class="h-6 w-32" />
+                            <Skeleton class="h-8 w-48" />
                         </div>
                     {/if}
                 {/if}
@@ -1406,7 +1403,7 @@
         }
 
         .search-container:not(.searched) .search-wrapper {
-            padding: 0.7rem 0.7rem 0.7rem 1.2rem;
+            padding: 0.5rem 0.5rem 0.5rem 1.2rem;
         }
         .search-ticker {
             font-size: 1.2rem !important;
@@ -1417,8 +1414,8 @@
             padding: 0.5rem !important;
         }
         .search-container:not(.searched) :global(.search-button) {
-            width: 40px !important;
-            height: 40px !important;
+            width: 48px !important;
+            height: 48px !important;
         }
         :global(.search-button :global(svg)) {
             height: 1.5rem !important;
@@ -1440,22 +1437,16 @@
         }
 
         .mobile-dish-header {
-            padding: 1rem 1.5rem 1.5rem 1.5rem;
+            padding: 1rem 1.5rem 0.5rem 1.5rem;
             text-align: left;
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            gap: 0.75rem;
+            justify-content: center;
             background: linear-gradient(
                 to top,
                 rgba(0, 0, 0, 0.8),
                 transparent
             );
-            flex-direction: column;
-        }
-
-        .mobile-dish-emoji {
-            font-size: 2.5rem;
         }
 
         .mobile-dish-title {
