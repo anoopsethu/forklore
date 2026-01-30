@@ -30,6 +30,7 @@
 	},
 	"dependencies": {
 		"@ai-sdk/google": "^3.0.13",
+		"@ai-sdk/openai": "^3.0.23",
 		"@google/generative-ai": "^0.24.1",
 		"@iconify/svelte": "^5.2.1",
 		"@material-design-icons/svg": "^0.14.15",

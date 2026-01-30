@@ -1,6 +1,8 @@
 import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
-import { generateText } from 'ai';
+import { generateObject } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { z } from 'zod';
 import type { RequestHandler } from './$types';
 
 // The response schema for type safety
@@ -12,9 +14,16 @@ export interface HistoryStep {
 	description: string;
 }
 
+export interface DishStats {
+	yearsOld: string;
+	servingsPerYear: string;
+	globalReach: string;
+}
+
 export interface DishHistoryResponse {
 	title: string;
 	emoji: string;
+	stats: DishStats;
 	steps: HistoryStep[];
 }
 
@@ -24,6 +33,11 @@ Return a JSON object with this exact schema:
 {
   "title": "string - The dish name with a fun, short tagline (ABSOLUTELY NO EMOJIS HERE - use the 'emoji' field instead)",
   "emoji": "string - A single emoji representing the dish",
+  "stats": {
+    "yearsOld": "string - The total age of the dish (e.g., '2,500', '150')",
+    "servingsPerYear": "string - Estimated annual servings globally (e.g., '95 B', '400 M')",
+    "globalReach": "string - Percentage of global popularity (e.g., '85%', '40%')"
+  },
   "steps": [
     {
       "year": "string - The approximate year or era (e.g., '3000 BCE', '1889', 'Early 1900s')",
@@ -57,77 +71,44 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// Check if API key is configured
-		const apiKey = env.AI_GATEWAY_API_KEY;
+		const apiKey = env.OPENAI_API_KEY;
 		if (!apiKey) {
-			throw error(500, 'AI Gateway API key not configured. Please set AI_GATEWAY_API_KEY in your .env file.');
+			throw error(500, 'OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.');
 		}
 
-		// Generate the response using the AI SDK with Vercel AI Gateway
-		// Model format: provider/model-name
-		const result = await generateText({
-			model: 'google/gemini-2.0-flash',
-			system: SYSTEM_INSTRUCTION,
-			prompt: `Trace the history of: ${dish}`
+		// Define the schema for validation
+		const schema = z.object({
+			title: z.string(),
+			emoji: z.string(),
+			stats: z.object({
+				yearsOld: z.string(),
+				servingsPerYear: z.string(),
+				globalReach: z.string()
+			}),
+			steps: z.array(z.object({
+				year: z.string(),
+				lat: z.number().nullable(),
+				lng: z.number().nullable(),
+				title: z.string(),
+				description: z.string()
+			})).length(5)
 		});
 
-		const text = result.text;
+		// Create a configured OpenAI provider with our key
+		const openaiStack = createOpenAI({
+			apiKey: apiKey
+		});
 
-		if (!text) {
-			console.error('No text in response');
-			throw error(500, 'No response from AI. Please try again.');
-		}
+		// Generate the response using the AI SDK with generateObject for reliability
+		const { object } = await generateObject({
+			model: openaiStack('gpt-4o-mini'),
+			system: SYSTEM_INSTRUCTION,
+			prompt: `Trace the history of: ${dish}`,
+			schema
+		});
 
-		// Parse and validate the JSON response
-		let parsedResponse: DishHistoryResponse;
-
-		try {
-			// Clean up the response if it has markdown code blocks
-			let cleanText = text.trim();
-			if (cleanText.startsWith('```json')) {
-				cleanText = cleanText.slice(7);
-			}
-			if (cleanText.startsWith('```')) {
-				cleanText = cleanText.slice(3);
-			}
-			if (cleanText.endsWith('```')) {
-				cleanText = cleanText.slice(0, -3);
-			}
-			parsedResponse = JSON.parse(cleanText.trim());
-		} catch {
-			console.error('Failed to parse AI response as JSON:', text);
-			throw error(500, 'Failed to parse AI response. Please try again.');
-		}
-
-		// Validate the response structure
-		if (!parsedResponse.title || !parsedResponse.emoji || !Array.isArray(parsedResponse.steps)) {
-			console.error('Invalid response structure:', parsedResponse);
-			throw error(500, 'Invalid response structure from AI. Please try again.');
-		}
-
-		// Validate each step has required fields
-		for (const step of parsedResponse.steps) {
-			if (
-				typeof step.year !== 'string' ||
-				(typeof step.lat !== 'number' && step.lat !== null) ||
-				(typeof step.lng !== 'number' && step.lng !== null) ||
-				typeof step.title !== 'string' ||
-				typeof step.description !== 'string'
-			) {
-				console.error('Invalid step structure:', step);
-				throw error(500, 'Invalid step structure from AI. Please try again.');
-			}
-
-			// Validate coordinate ranges if not null
-			if (step.lat !== null && step.lng !== null) {
-				if (step.lat < -90 || step.lat > 90 || step.lng < -180 || step.lng > 180) {
-					console.error('Invalid coordinates:', step);
-					throw error(500, 'Invalid coordinates from AI. Please try again.');
-				}
-			}
-		}
-
-		return json(parsedResponse);
-	} catch (err) {
+		return json(object);
+	} catch (err: any) {
 		// Re-throw SvelteKit errors
 		if (err && typeof err === 'object' && 'status' in err) {
 			throw err;
@@ -135,6 +116,9 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// Handle other errors
 		console.error('Error generating dish history:', err);
-		throw error(500, 'An unexpected error occurred. Please try again.');
+
+		// Extract more info if available
+		const message = err.message || 'An unexpected error occurred';
+		throw error(500, `${message}. Please try again.`);
 	}
 };

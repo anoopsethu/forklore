@@ -2,6 +2,7 @@
     import { onMount } from "svelte";
     import { fade, fly } from "svelte/transition";
     import Map from "$lib/components/Map.svelte";
+    import FeaturedDishCard from "$lib/components/FeaturedDishCard.svelte";
     import { Input } from "$lib/components/ui/input";
     import * as Card from "$lib/components/ui/card";
     import { Skeleton } from "$lib/components/ui/skeleton";
@@ -19,7 +20,21 @@
     interface DishHistory {
         title: string;
         emoji: string;
+        stats: {
+            yearsOld: string;
+            servingsPerYear: string;
+            globalReach: string;
+        };
         steps: Step[];
+    }
+
+    interface FeaturedDish {
+        name: string;
+        emoji: string;
+        region: string;
+        trivia: string;
+        lat: number;
+        lng: number;
     }
 
     // State
@@ -30,8 +45,15 @@
     let error = $state<string | null>(null);
     let activeCardIndex = $state(-1);
 
-    // Show map only when we have results
-    let showMap = $derived(dishHistory !== null);
+    // Featured dishes state
+    let featuredDishes = $state<FeaturedDish[]>([]);
+    let isLoadingFeatured = $state(true);
+    let isLoadingHistory = $state(false);
+
+    // Map mode: discovery (globe with featured) or history (timeline view)
+    let mapMode = $derived<"discovery" | "history">(
+        hasSearched ? "history" : "discovery",
+    );
 
     // Card elements for intersection observer
     let cardElements: HTMLElement[] = [];
@@ -46,14 +68,69 @@
             isMobile = window.innerWidth <= 768;
         };
         window.addEventListener("resize", handleResize);
+
+        // Fetch featured dishes on mount
+        fetchFeaturedDishes();
+
         return () => window.removeEventListener("resize", handleResize);
     });
+
+    async function fetchFeaturedDishes() {
+        isLoadingFeatured = true;
+        try {
+            const response = await fetch("/api/featured");
+            if (response.ok) {
+                const data = await response.json();
+                featuredDishes = data.dishes || [];
+            }
+        } catch (err) {
+            console.error("Failed to fetch featured dishes:", err);
+        } finally {
+            isLoadingFeatured = false;
+        }
+    }
+
+    async function handleFeaturedClick(dish: FeaturedDish) {
+        if (isLoadingHistory) return;
+
+        searchQuery = dish.name;
+        isLoadingHistory = true;
+        isSearching = true;
+        error = null;
+        dishHistory = null;
+        hasSearched = true;
+        activeCardIndex = -1;
+
+        try {
+            const response = await fetch("/api/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dish: dish.name }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || "Failed to generate history");
+            }
+
+            dishHistory = await response.json();
+        } catch (err) {
+            error =
+                err instanceof Error
+                    ? err.message
+                    : "An unexpected error occurred";
+        } finally {
+            isSearching = false;
+            isLoadingHistory = false;
+        }
+    }
 
     async function handleSearch(e: Event) {
         e.preventDefault();
         if (!searchQuery.trim() || isSearching) return;
 
         isSearching = true;
+        isLoadingHistory = true;
         error = null;
         dishHistory = null;
         hasSearched = true;
@@ -79,6 +156,7 @@
                     : "An unexpected error occurred";
         } finally {
             isSearching = false;
+            isLoadingHistory = false;
         }
     }
 
@@ -230,35 +308,31 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="app-container">
-    <!-- Landing Background -->
-    {#if !showMap}
-        <div class="landing-background" out:fade={{ duration: 1000 }}></div>
-        <div class="landing-overlay" out:fade={{ duration: 1000 }}></div>
-    {/if}
+    <!-- Full-screen Map (always visible - globe in discovery, history in searched) -->
+    <div class="map-container">
+        <Map
+            steps={dishHistory?.steps || []}
+            activeIndex={activeCardIndex}
+            onMarkerClick={handleMarkerClick}
+            {featuredDishes}
+            mode={mapMode}
+            onFeaturedClick={handleFeaturedClick}
+            isLoading={isLoadingHistory}
+        />
+    </div>
 
-    <!-- Full-screen Map (shown after results) -->
-    {#if showMap}
-        <div class="map-container" class:visible={showMap}>
-            <Map
-                steps={dishHistory?.steps || []}
-                activeIndex={activeCardIndex}
-                onMarkerClick={handleMarkerClick}
-            />
-        </div>
-    {/if}
+    <!-- Left Panel Gradient (always visible now) -->
+    <div class="left-panel-gradient visible"></div>
 
-    <!-- Left Panel Gradient (only shown with map/loading) -->
-    <div class="left-panel-gradient" class:visible={hasSearched}></div>
-
-    <!-- Top Right Gradient (behind logo) -->
-    <div class="corner-gradient" class:visible={hasSearched}></div>
+    <!-- Top Right Gradient (behind logo - always visible) -->
+    <div class="corner-gradient visible"></div>
 
     <!-- UI Overlay (always visible container for interactions) -->
     <div class="ui-overlay">
         <!-- Logo (persist and move) -->
+        <!-- Logo (always in corner) -->
         <button
-            class="logo-button"
-            class:corner-logo={hasSearched}
+            class="logo-button corner-logo"
             onclick={resetView}
             aria-label="Return to landing page"
         >
@@ -269,32 +343,39 @@
             />
         </button>
 
-        <!-- Landing Content (Tagline) -->
-        {#if !hasSearched}
-            <div class="landing-header" out:fade={{ duration: 300 }}>
-                <p class="landing-tagline">
-                    Discover the origins and evolution of your favorite dishes
-                    through time & space
-                </p>
-            </div>
-        {/if}
-
-        <!-- Search Container -->
-        <div class="search-container" class:searched={hasSearched}>
+        <!-- Search Container (always in corner position) -->
+        <div class="search-container searched">
             <form onsubmit={handleSearch} class="search-form">
                 <div
                     class="search-wrapper"
                     class:shimmering={!hasSearched && !searchQuery.trim()}
                 >
-                    <Icon
-                        icon="material-symbols:search-rounded"
-                        class="search-icon"
-                        color={hasSearched ? "white" : "black"}
-                        width="24"
-                        height="24"
-                    />
-                    <!-- Search Ticker Overlay -->
-                    {#if !searchQuery && !isSearching}
+                    {#if hasSearched}
+                        <!-- Back arrow button in searched state -->
+                        <button
+                            type="button"
+                            class="back-button"
+                            onclick={resetView}
+                            aria-label="Return to discovery"
+                        >
+                            <Icon
+                                icon="material-symbols:arrow-back-rounded"
+                                width="24"
+                                height="24"
+                            />
+                        </button>
+                    {:else}
+                        <Icon
+                            icon="material-symbols:search-rounded"
+                            class="search-icon"
+                            color="white"
+                            width="24"
+                            height="24"
+                        />
+                    {/if}
+
+                    <!-- Search Ticker Overlay (only in discovery mode) -->
+                    {#if !searchQuery && !isSearching && !hasSearched}
                         <div class="search-ticker">
                             <span class="ticker-static">Search for </span>
                             <div class="ticker-content">
@@ -323,6 +404,7 @@
                         class="search-input"
                         disabled={isSearching}
                     />
+
                     <Button
                         type="submit"
                         variant="ghost"
@@ -350,37 +432,67 @@
             </form>
         </div>
 
-        <!-- Features (Landing Only) -->
-        {#if !hasSearched}
-            <div
-                class="features-container"
-                in:fade={{ delay: 200, duration: 800 }}
-                out:fade={{ duration: 300 }}
-            >
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">
-                        <img src="/map-emoji.png" class="w-16" alt="" />
+        <!-- Cards Panel - shows Featured Dishes (discovery) or History Cards (searched) -->
+        <div class="cards-panel-wrapper visible">
+            {#if !hasSearched}
+                <!-- Featured Dishes (Discovery Mode) -->
+                <div class="cards-container">
+                    <!-- Intro Section -->
+                    <div class="intro-section mt-4">
+                        <h2 class="intro-title">What is Forklore?</h2>
+                        <div class="intro-card">
+                            <div class="intro-item">
+                                <span class="intro-emoji">🗺️</span>
+                                <span class="intro-text"
+                                    >Travel through time and taste</span
+                                >
+                            </div>
+                            <div class="intro-item">
+                                <span class="intro-emoji">✨</span>
+                                <span class="intro-text"
+                                    >Uncover hidden stories instantly</span
+                                >
+                            </div>
+                            <div class="intro-item">
+                                <span class="intro-emoji">🔍</span>
+                                <span class="intro-text"
+                                    >Watch the journey come alive</span
+                                >
+                            </div>
+                        </div>
                     </div>
-                    <p class="feature-text">Travel through time and taste</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">
-                        <img src="/sparkles-emoji.png" class="w-16" alt="" />
-                    </div>
-                    <p class="feature-text">Uncover hidden stories instantly</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon-wrapper">
-                        <img src="/lollipop-emoji.png" class="w-16" alt="" />
-                    </div>
-                    <p class="feature-text">Watch the journey come alive</p>
-                </div>
-            </div>
-        {/if}
 
-        <!-- Story Cards Panel -->
-        {#if hasSearched}
-            <div class="cards-panel-wrapper" class:visible={hasSearched}>
+                    <!-- Featured Title -->
+                    <h2 class="intro-title">Explore Popular Dishes</h2>
+
+                    <!-- Featured Cards -->
+                    <div class="featured-cards">
+                        {#if isLoadingFeatured}
+                            {#each Array(6) as _, i}
+                                <div
+                                    class="featured-card-skeleton"
+                                    style="--delay: {i * 100}ms"
+                                >
+                                    <Skeleton class="h-10 w-10 rounded-lg" />
+                                    <div class="skeleton-text">
+                                        <Skeleton class="h-4 w-24" />
+                                        <Skeleton class="h-3 w-16" />
+                                    </div>
+                                </div>
+                            {/each}
+                        {:else}
+                            {#each featuredDishes as dish, i}
+                                <FeaturedDishCard
+                                    {dish}
+                                    isLoading={isLoadingHistory}
+                                    onclick={() => handleFeaturedClick(dish)}
+                                />
+                            {/each}
+                        {/if}
+                    </div>
+                </div>
+            {:else}
+                <!-- History Cards (Searched State) -->
                 {#if isMobile}
                     {#if dishHistory}
                         <div class="mobile-dish-header" in:fade>
@@ -403,23 +515,28 @@
                     {#if isSearching}
                         {#if !isMobile}
                             <div
-                                class="title-card skeleton-entry"
+                                class="dish-header-section skeleton-entry"
                                 style="--delay: 0ms"
                             >
-                                <Skeleton
-                                    class="w-16 h-16 rounded-full mx-auto mb-4"
-                                />
-                                <Skeleton class="h-8 w-3/4 mx-auto mb-2" />
-                                <Skeleton class="h-4 w-1/2 mx-auto" />
+                                <Skeleton class="h-8 w-11/12 mb-2" />
+                                <Skeleton class="h-8 w-2/3" />
+                            </div>
+
+                            <div
+                                class="stats-cards skeleton-entry"
+                                style="--delay: 100ms"
+                            >
+                                <Skeleton class="h-20 flex-1 rounded-xl" />
+                                <Skeleton class="h-20 flex-1 rounded-xl" />
+                                <Skeleton class="h-20 flex-1 rounded-xl" />
                             </div>
                         {/if}
 
                         <div class="timeline-container skeleton-timeline">
-                            <div class="timeline-line"></div>
                             {#each Array(2) as _, i}
                                 <div
                                     class="skeleton-entry timeline-item"
-                                    style="--delay: {(i + 1) * 150}ms"
+                                    style="--delay: {(i + 1) * 150 + 200}ms"
                                 >
                                     <div class="timeline-marker-wrapper">
                                         <div class="timeline-marker">
@@ -428,15 +545,9 @@
                                     </div>
 
                                     <div class="timeline-content">
-                                        <div class="timeline-header">
-                                            <Skeleton class="h-4 w-20" />
-                                        </div>
-                                        <div
-                                            class="timeline-card-content glass-card"
-                                        >
-                                            <Skeleton class="h-4 w-full mb-2" />
-                                            <Skeleton class="h-4 w-2/3" />
-                                        </div>
+                                        <Skeleton class="h-3 w-12 mb-2" />
+                                        <Skeleton class="h-5 w-40 mb-3" />
+                                        <Skeleton class="h-3 w-full" />
                                     </div>
                                 </div>
                             {/each}
@@ -461,19 +572,45 @@
                             </Card.Content>
                         </Card.Root>
                     {:else if dishHistory}
-                        <!-- Title Card (Desktop only - Mobile has its own header below) -->
+                        <!-- Large Title Section (Desktop only) -->
                         {#if !isMobile}
-                            <div class="title-card">
-                                <div class="dish-emoji mb-4">
-                                    {dishHistory.emoji}
+                            <div class="dish-header-section">
+                                <h1 class="dish-main-title">
+                                    {dishHistory.title}: A Culinary Journey
+                                    Through Time
+                                </h1>
+                            </div>
+
+                            <!-- Stats Cards -->
+                            <div class="stats-cards">
+                                <div class="stat-card">
+                                    <span class="stat-icon">🏛️</span>
+                                    <span class="stat-value"
+                                        >{dishHistory.stats.yearsOld}</span
+                                    >
+                                    <span class="stat-label">YEARS OLD</span>
                                 </div>
-                                <h1 class="dish-title">{dishHistory.title}</h1>
+                                <div class="stat-card">
+                                    <span class="stat-icon">🍽️</span>
+                                    <span class="stat-value"
+                                        >{dishHistory.stats
+                                            .servingsPerYear}</span
+                                    >
+                                    <span class="stat-label">SERVINGS/YEAR</span
+                                    >
+                                </div>
+                                <div class="stat-card">
+                                    <span class="stat-icon">🌎</span>
+                                    <span class="stat-value"
+                                        >{dishHistory.stats.globalReach}</span
+                                    >
+                                    <span class="stat-label">GLOBAL REACH</span>
+                                </div>
                             </div>
                         {/if}
 
                         <!-- History Steps - Timeline Format -->
                         <div class="timeline-container">
-                            <div class="timeline-line"></div>
                             {#each dishHistory.steps as step, index}
                                 <div
                                     class="timeline-item"
@@ -493,18 +630,15 @@
                                     </div>
 
                                     <div class="timeline-content">
-                                        <div class="timeline-header">
-                                            <span class="timeline-year"
-                                                >{step.year}</span
-                                            >
-                                        </div>
-                                        <div
-                                            class="timeline-card-content glass-card"
+                                        <span class="timeline-year"
+                                            >{step.year}</span
                                         >
-                                            <p class="timeline-description">
-                                                {step.description}
-                                            </p>
-                                        </div>
+                                        <h4 class="timeline-title">
+                                            {step.title}
+                                        </h4>
+                                        <p class="timeline-description">
+                                            {step.description}
+                                        </p>
                                     </div>
                                 </div>
                             {/each}
@@ -535,9 +669,36 @@
                 {#if dishHistory}
                     <div class="cards-fade-bottom"></div>
                 {/if}
-            </div>
-        {/if}
+            {/if}
+        </div>
     </div>
+
+    <!-- Playback Controls (only in searched state) -->
+    {#if hasSearched && dishHistory}
+        <div class="playback-controls">
+            <button class="playback-btn" aria-label="Restart">
+                <Icon
+                    icon="material-symbols:restart-alt-rounded"
+                    width="24"
+                    height="24"
+                />
+            </button>
+            <button class="playback-btn play-btn" aria-label="Play">
+                <Icon
+                    icon="material-symbols:play-arrow-rounded"
+                    width="32"
+                    height="32"
+                />
+            </button>
+            <button class="playback-btn" aria-label="Stop">
+                <Icon
+                    icon="material-symbols:stop-rounded"
+                    width="24"
+                    height="24"
+                />
+            </button>
+        </div>
+    {/if}
 </div>
 
 <style>
@@ -615,8 +776,8 @@
         z-index: 5; /* Behind UI overlay but above map/landing bg */
         background: linear-gradient(
             90deg,
-            rgba(0, 0, 0, 0.75) 0%,
-            rgba(0, 0, 0, 0.75) 30%,
+            rgba(0, 0, 0, 0.8) 0%,
+            rgba(0, 0, 0, 0.8) 30%,
             transparent 50%
         );
         opacity: 0;
@@ -663,7 +824,7 @@
         top: 1.5rem;
         left: 1.5rem;
         transform: none;
-        max-width: 400px;
+        max-width: 360px;
     }
 
     .search-container.searched .search-wrapper {
@@ -691,56 +852,120 @@
         gap: 1rem;
     }
 
-    /* Feature Cards */
-    .features-container {
+    /* Featured Panel (Discovery Mode) */
+    .featured-panel {
         position: absolute;
-        top: 60%;
-        left: 50%;
-        transform: translate(-50%, 0);
+        top: 50%;
+        left: 2rem;
+        transform: translateY(-50%);
         display: flex;
+        flex-direction: column;
         gap: 1.5rem;
         z-index: 10;
-        width: 100%;
-        max-width: 900px;
-        justify-content: center;
-        flex-wrap: wrap;
+        width: 340px;
+        max-height: 80vh;
+        overflow-y: auto;
+        padding: 1.5rem;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
     }
 
-    .feature-card {
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(6px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 24px;
-        padding: 1.5rem;
+    .intro-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .intro-title {
+        color: white;
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 0 0 1rem 0;
+    }
+
+    .intro-card {
+        background:
+            linear-gradient(rgba(30, 30, 30, 1), rgba(30, 30, 30, 1))
+                padding-box,
+            linear-gradient(
+                    180deg,
+                    rgba(255, 255, 255, 0.3) 0%,
+                    rgba(255, 255, 255, 0.2) 50%,
+                    rgba(255, 255, 255, 0.2) 100%
+                )
+                border-box;
+        border: 1.4px solid transparent;
+        border-radius: 16px;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .intro-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .intro-emoji {
+        font-size: 1.5rem;
+        width: 2rem;
+        text-align: center;
+    }
+
+    .intro-text {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.95rem;
+        line-height: 1.4;
+    }
+
+    .featured-title {
+        color: white;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 2rem 0 1rem 0;
+    }
+
+    .featured-card-skeleton {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        text-align: center;
-        gap: 1rem;
-        width: 200px;
-        transition:
-            transform 0.3s ease,
-            background 0.3s ease;
+        gap: 0.35rem; /* Match real card gap */
+        padding: 0.5rem 1rem; /* Match real card padding */
+        background:
+            linear-gradient(rgba(40, 40, 40, 1), rgba(40, 40, 40, 1))
+                padding-box,
+            linear-gradient(
+                    180deg,
+                    rgba(255, 255, 255, 0.3) 0%,
+                    rgba(255, 255, 255, 0.2) 50%,
+                    rgba(255, 255, 255, 0.2) 100%
+                )
+                border-box;
+        border: 1.4px solid transparent;
+        border-radius: 16px;
+        animation: skeleton-pulse 1.5s ease-in-out infinite;
+        animation-delay: var(--delay);
+        height: 150px;
     }
 
-    .feature-card:hover {
-        transform: translateY(-5px);
-        background: rgba(0, 0, 0, 0.7);
-        border-color: rgba(255, 255, 255, 0.3);
+    .skeleton-text {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
     }
 
-    /* Icon placeholders */
-    .feature-icon-wrapper {
-        font-size: 3rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .feature-text {
-        font-size: 0.9375rem;
-        line-height: 1.4;
-        color: rgba(255, 255, 255, 0.9);
-        font-weight: 500;
+    @keyframes skeleton-pulse {
+        0%,
+        100% {
+            opacity: 0.4;
+        }
+        50% {
+            opacity: 0.7;
+        }
     }
 
     /* Search Container Landing Overrides */
@@ -804,12 +1029,6 @@
         display: none;
     }
 
-    /* Subsitute border with separate property for shimmering state if needed, or overlay */
-    .search-wrapper.shimmering {
-        border-color: rgba(255, 255, 255, 0.4);
-        position: relative;
-    }
-
     .search-wrapper.shimmering::before {
         content: "";
         position: absolute;
@@ -841,6 +1060,34 @@
     .search-wrapper:focus-within {
         box-shadow: 0 0px 80px rgba(0, 0, 0, 1);
         border: 1.6px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .back-button {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .back-button:hover {
+        opacity: 0.7;
+    }
+
+    .searched-dish-name {
+        flex: 1;
+        color: white;
+        font-size: 1rem;
+        font-weight: 400;
+        padding-left: 0.75rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .search-ticker {
@@ -883,7 +1130,7 @@
         box-shadow: none !important;
         color: white !important;
         padding: 1rem !important;
-        font-size: 1.25rem !important;
+        font-size: 1rem !important;
     }
 
     :global(.search-input::placeholder) {
@@ -969,9 +1216,30 @@
         left: 1.5rem;
         top: 6rem;
         bottom: 2rem;
-        max-width: 400px;
+        max-width: 360px; /* Increased from 400px to allow more room for 3 columns */
         width: 100%;
         pointer-events: none;
+        z-index: 20;
+    }
+
+    .featured-cards {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+        width: 100%;
+        /* Removed extra padding-right to align with other cards */
+    }
+    .cards-container {
+        position: absolute;
+        inset: 0;
+        overflow-y: auto;
+        pointer-events: auto;
+        scrollbar-width: none;
+        padding: 0 1rem 2rem 0; /* Added slight right padding to prevent border crop */
+    }
+
+    .cards-container::-webkit-scrollbar {
+        display: none;
     }
 
     .cards-fade-bottom {
@@ -989,6 +1257,52 @@
         );
     }
 
+    /* Playback Controls */
+    .playback-controls {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: rgba(30, 30, 30, 0.9);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 9999px;
+        z-index: 100;
+    }
+
+    .playback-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+    }
+
+    .playback-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .playback-btn.play-btn {
+        width: 48px;
+        height: 48px;
+        background: #ff8c00;
+        color: black;
+    }
+
+    .playback-btn.play-btn:hover {
+        background: #ffa333;
+    }
+
     /* Cards Panel */
     .cards-panel {
         position: absolute;
@@ -998,7 +1312,7 @@
         padding-top: 1rem;
         padding-bottom: 1rem;
         scrollbar-width: thin;
-        scrollbar-color: rgba(84, 185, 202, 0) transparent;
+        scrollbar-color: rgba(255, 140, 0, 0) transparent;
     }
 
     .cards-panel::-webkit-scrollbar {
@@ -1010,7 +1324,7 @@
     }
 
     .cards-panel::-webkit-scrollbar-thumb {
-        background: rgba(84, 185, 202, 0.3);
+        background: rgba(255, 140, 0, 0.3);
         border-radius: 3px;
     }
 
@@ -1025,6 +1339,66 @@
         text-align: center;
         padding: 1rem;
         margin-bottom: 1rem;
+    }
+
+    /* New styles for searched state */
+    .dish-header-section {
+        margin-bottom: 1.5rem;
+    }
+
+    .dish-main-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: white;
+        line-height: 1.3;
+        margin: 0;
+    }
+
+    .stats-cards {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+        padding: 0.75rem 1rem;
+        min-height: 105px;
+        background:
+            linear-gradient(rgba(30, 30, 30, 0.8), rgba(30, 30, 30, 0.8))
+                padding-box,
+            linear-gradient(
+                    180deg,
+                    rgba(255, 255, 255, 0.3) 0%,
+                    rgba(255, 255, 255, 0.1) 100%
+                )
+                border-box;
+        border: 1.4px solid transparent;
+        border-radius: 12px;
+        flex: 1;
+        text-align: center;
+    }
+
+    .stat-icon {
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+
+    .stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: white;
+    }
+
+    .stat-label {
+        font-size: 0.6rem;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
     .dish-emoji {
@@ -1058,7 +1432,7 @@
 
     .step-card.active :global(.glass-card) {
         border-color: rgba(255, 255, 255, 0.3) !important;
-        box-shadow: 0 0 20px rgba(84, 185, 202, 0.15);
+        box-shadow: 0 0 20px rgba(255, 140, 0, 0.15);
         border-width: 2px !important;
         background: rgba(41, 41, 41, 1) !important;
     }
@@ -1068,27 +1442,31 @@
         position: relative;
     }
 
-    .timeline-line {
+    .timeline-item::after {
+        content: "";
         position: absolute;
-        left: 10px;
-        top: 1.5rem;
-        bottom: 185px;
-        width: 1px;
-        border-left: 2px dashed rgba(255, 255, 255, 0.15);
+        left: 20px; /* Perfectly centered with 42px wrapper */
+        top: 2rem;
+        bottom: -2.7rem; /* Extends to next item's marker */
+        width: 2px;
+        background: rgba(255, 255, 255, 0.2);
         z-index: 0;
+    }
+
+    .timeline-item:last-child::after {
+        display: none;
     }
 
     .timeline-item {
         display: flex;
         gap: 1rem;
-        margin-bottom: 1.8rem;
+        margin-bottom: 2rem;
         position: relative;
         z-index: 1;
         cursor: pointer;
-        opacity: 0.4;
+        opacity: 0.35;
         transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
         padding: 0.5rem 0;
-        border-radius: 12px;
     }
 
     .timeline-item.active {
@@ -1096,37 +1474,37 @@
     }
 
     .timeline-marker-wrapper {
+        width: 42px; /* Increased to accommodate 20px markers */
         flex-shrink: 0;
+        display: flex;
+        justify-content: center;
         padding-top: 4px;
     }
 
     .timeline-marker {
-        width: 20px;
-        height: 20px;
+        width: 16px; /* Slightly smaller inactive rings as per mockup */
+        height: 16px;
         border-radius: 50%;
-        border: 2px solid rgba(255, 255, 255, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.25);
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(0, 0, 0, 1);
-        transition: all 0.3s ease;
-    }
-
-    .marker-inner {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
         background: transparent;
         transition: all 0.3s ease;
+        position: relative;
+        z-index: 2;
     }
 
     .timeline-item.active .timeline-marker {
-        border-color: #54b9ca;
-        box-shadow: 0 0 15px rgba(84, 185, 202, 0.4);
+        border-color: white;
+        background: #ff8c00;
+        width: 20px;
+        height: 20px;
+        box-shadow: 0 0 15px rgba(255, 140, 0, 0.3);
     }
 
-    .timeline-item.active .marker-inner {
-        background: #54b9ca;
+    .marker-inner {
+        display: none;
     }
 
     .timeline-content {
@@ -1134,13 +1512,13 @@
     }
 
     .timeline-header {
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.5rem;
     }
 
     .timeline-year {
-        color: #54b9ca;
+        color: #ff8c00;
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.75rem;
         letter-spacing: 0.05em;
         text-transform: uppercase;
     }
@@ -1184,18 +1562,26 @@
         border-color: transparent;
     }
 
-    .timeline-description {
-        color: rgba(255, 255, 255, 0.8);
+    .timeline-title {
+        color: white;
         font-size: 1rem;
-        line-height: 1.6;
-        /* padding-bottom: 1.5rem; */
+        font-weight: 600;
+        margin: 0.25rem 0 0.5rem;
+    }
+
+    .timeline-description {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.9rem;
+        line-height: 1.5;
+        margin: 0;
     }
 
     /* Skeleton Loading - Timeline Format */
     .skeleton-entry {
         opacity: 0;
-        animation: fade-in-up 0.5s ease forwards;
+        animation: fade-in 0.5s ease forwards;
         animation-delay: var(--delay);
+        transform: none !important; /* Force no slide */
     }
 
     .skeleton-timeline .timeline-item {
@@ -1207,37 +1593,22 @@
         margin-top: 2.8rem;
     }
 
-    .skeleton-timeline .timeline-line {
-        bottom: 160px;
-        transform-origin: top;
-        opacity: 0;
-        animation: timeline-draw 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-        animation-delay: 150ms;
+    .skeleton-timeline .timeline-item {
+        opacity: 1; /* Full opacity for skeleton entries */
     }
 
-    @keyframes timeline-draw {
+    .skeleton-timeline .timeline-marker {
+        width: 20px;
+        height: 20px;
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    @keyframes fade-in {
         from {
             opacity: 0;
-            transform: scaleY(0);
         }
         to {
             opacity: 1;
-            transform: scaleY(1);
-        }
-    }
-
-    .skeleton-timeline .timeline-card-content {
-        height: 120px;
-    }
-
-    @keyframes fade-in-up {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
         }
     }
 
@@ -1410,7 +1781,7 @@
             left: 3.25rem;
         }
         :global(.search-input) {
-            font-size: 1.2rem !important;
+            font-size: 1rem !important;
             padding: 0.5rem !important;
         }
         .search-container:not(.searched) :global(.search-button) {
@@ -1490,7 +1861,7 @@
             height: 100%;
         }
 
-        .timeline-line {
+        .timeline-item::after {
             display: none;
         }
 
@@ -1588,20 +1959,4 @@
     }
 
     /* Skeleton Animations */
-    @keyframes slideUpFade {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .skeleton-entry {
-        animation: slideUpFade 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        opacity: 0; /* Start hidden */
-        animation-delay: var(--delay, 0ms);
-    }
 </style>

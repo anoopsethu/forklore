@@ -13,15 +13,32 @@
 		description: string;
 	}
 
+	interface FeaturedDish {
+		name: string;
+		emoji: string;
+		region: string;
+		trivia: string;
+		lat: number;
+		lng: number;
+	}
+
 	// Props
 	let {
 		steps = [],
 		activeIndex = -1,
 		onMarkerClick = (index: number) => {},
+		featuredDishes = [],
+		mode = "discovery",
+		onFeaturedClick = (dish: FeaturedDish) => {},
+		isLoading = false,
 	}: {
 		steps?: Step[];
 		activeIndex?: number;
 		onMarkerClick?: (index: number) => void;
+		featuredDishes?: FeaturedDish[];
+		mode?: "discovery" | "history";
+		onFeaturedClick?: (dish: FeaturedDish) => void;
+		isLoading?: boolean;
 	} = $props();
 
 	// Map instance
@@ -34,9 +51,9 @@
 	}
 	let markers: CustomMarker[] = [];
 
-	// Neon cyan color for the route
-	const ROUTE_COLOR = "#54b9ca";
-	const MARKER_COLOR = "#54b9ca";
+	// Yellow/orange theme color for the route
+	const ROUTE_COLOR = "#ff8c00";
+	const MARKER_COLOR = "#ff8c00";
 
 	let isMobile = $state(false);
 
@@ -341,19 +358,18 @@
 			clusters.forEach((cluster) => {
 				const { indices, lat, lng } = cluster;
 
-				// Determine label (e.g. "1" or "1-3")
-				const min = Math.min(...indices) + 1;
-				const max = Math.max(...indices) + 1;
-				const label = indices.length > 1 ? `${min}-${max}` : `${min}`;
+				// Get the year for the first step in the cluster
+				const firstStepIndex = indices[0];
+				const step = steps[firstStepIndex];
+				const yearLabel = step?.year || "";
 
-				// Create custom marker element
+				// Create custom marker element with year label
 				const el = document.createElement("div");
 				el.className = "custom-marker";
 				el.innerHTML = `
 					<div class="marker-wrapper">
+						<div class="marker-year-label">${yearLabel}</div>
 						<div class="marker-dot"></div>
-						<div class="marker-pulse"></div>
-						<div class="marker-label">${label}</div>
 					</div>
 				`;
 
@@ -419,9 +435,104 @@
 			}
 		}
 	}
+
+	// Featured markers for discovery mode
+	let featuredMarkers: mapboxgl.Marker[] = [];
+
+	function addFeaturedMarkers() {
+		if (!map) return;
+
+		// Remove existing featured markers
+		featuredMarkers.forEach((m) => m.remove());
+		featuredMarkers = [];
+
+		featuredDishes.forEach((dish) => {
+			const displayEmoji = dish.emoji.length > 2 ? "🍲" : dish.emoji;
+			// Create featured marker element with white label
+			const el = document.createElement("div");
+			el.className = "featured-marker";
+			el.innerHTML = `
+				<div class="featured-marker-content">
+					<span class="featured-emoji">${displayEmoji}</span>
+					<div class="featured-label">
+						<span class="featured-name">${dish.name}</span>
+						<span class="featured-region">${dish.region.toUpperCase()}</span>
+					</div>
+				</div>
+			`;
+
+			el.addEventListener("click", () => {
+				onFeaturedClick(dish);
+			});
+
+			const marker = new mapboxgl.Marker({ element: el })
+				.setLngLat([dish.lng, dish.lat])
+				.addTo(map!);
+
+			featuredMarkers.push(marker);
+		});
+	}
+
+	function clearFeaturedMarkers() {
+		featuredMarkers.forEach((m) => m.remove());
+		featuredMarkers = [];
+	}
+
+	// Effect to handle featured dishes
+	$effect(() => {
+		const dishCount = featuredDishes.length;
+		const currentMode = mode;
+
+		if (map && currentMode === "discovery" && dishCount > 0) {
+			if (map.isStyleLoaded()) {
+				addFeaturedMarkers();
+				// Move view to account for sidebar
+				map.easeTo({
+					center: [20, 10], // Shifted slightly right and down for better global view
+					zoom: 1.8,
+					padding: activePadding,
+					duration: 2000,
+				});
+			} else {
+				map.once("styledata", () => {
+					addFeaturedMarkers();
+					map!.easeTo({
+						center: [20, 10],
+						zoom: 1.8,
+						padding: activePadding,
+						duration: 2000,
+					});
+				});
+			}
+		} else if (currentMode === "history") {
+			clearFeaturedMarkers();
+		}
+	});
+
+	// Effect to clear route when switching to discovery mode
+	$effect(() => {
+		if (mode === "discovery" && map && map.getSource("route")) {
+			(map!.getSource("route") as mapboxgl.GeoJSONSource).setData({
+				type: "Feature",
+				properties: {},
+				geometry: {
+					type: "LineString",
+					coordinates: [],
+				},
+			});
+			// Also clear history markers
+			markers.forEach((m) => m.remove());
+			markers = [];
+		}
+	});
 </script>
 
-<div bind:this={mapContainer} class="map-container"></div>
+<div class="map-wrapper" class:loading={isLoading}>
+	<div bind:this={mapContainer} class="map-container"></div>
+	{#if isLoading}
+		<div class="loading-overlay"></div>
+	{/if}
+</div>
 
 <style>
 	.map-container {
@@ -450,12 +561,12 @@
 	:global(.marker-dot) {
 		position: absolute;
 		inset: 8px;
-		background: #54b9ca;
+		background: #ff8c00;
 		border-radius: 50%;
 		border: 3px solid #ffffff;
 		box-shadow:
-			0 0 15px #54b9ca,
-			0 0 30px #54b9ca,
+			0 0 15px #ff8c00,
+			0 0 30px #ff8c00,
 			0 2px 10px rgba(0, 0, 0, 0.5);
 		transition:
 			transform 0.3s ease,
@@ -465,10 +576,14 @@
 	:global(.marker-pulse) {
 		position: absolute;
 		inset: 0;
-		border: 3px solid #54b9ca;
+		border: 3px solid #ff8c00;
 		border-radius: 50%;
 		opacity: 0;
 		display: none;
+	}
+
+	:global(.custom-marker.active) {
+		z-index: 50;
 	}
 
 	:global(.custom-marker.active .marker-pulse) {
@@ -479,11 +594,11 @@
 
 	:global(.custom-marker.active .marker-dot) {
 		transform: scale(1.3);
-		background: #54b9ca;
+		background: #ff8c00;
 		box-shadow:
-			0 0 20px #54b9ca,
-			0 0 40px #54b9ca,
-			0 0 60px #54b9ca,
+			0 0 20px #ff8c00,
+			0 0 40px #ff8c00,
+			0 0 60px #ff8c00,
 			0 2px 15px rgba(0, 0, 0, 0.5);
 	}
 
@@ -492,7 +607,7 @@
 		top: -30px;
 		left: 50%;
 		transform: translateX(-50%);
-		background: #54b9ca;
+		background: #ff8c00;
 		color: #0a0a0a;
 		font-size: 12px;
 		font-weight: 800;
@@ -500,6 +615,46 @@
 		border-radius: 6px;
 		white-space: nowrap;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+	}
+
+	:global(.marker-year-label) {
+		position: absolute;
+		top: -42px; /* Adjusted to make room for chevron */
+		left: 50%;
+		transform: translateX(-50%);
+		background: rgba(255, 255, 255, 0.95);
+		color: #111;
+		font-size: 11px;
+		font-weight: 700;
+		padding: 4px 10px;
+		border-radius: 6px;
+		white-space: nowrap;
+		box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+		transition: all 0.3s ease;
+	}
+
+	/* Chevron / Tip */
+	:global(.marker-year-label::after) {
+		content: "";
+		position: absolute;
+		bottom: -6px;
+		left: 50%;
+		transform: translateX(-50%);
+		border-left: 6px solid transparent;
+		border-right: 6px solid transparent;
+		border-top: 6px solid rgba(255, 255, 255, 0.95);
+		transition: all 0.3s ease;
+	}
+
+	:global(.custom-marker.active .marker-year-label) {
+		background: #ff8c00;
+		color: #0c0c0c; /* Dark text on orange */
+		box-shadow: 0 4px 15px rgba(255, 140, 0, 0.4);
+		z-index: 100;
+	}
+
+	:global(.custom-marker.active .marker-year-label::after) {
+		border-top-color: #ff8c00;
 	}
 
 	@keyframes pulse-active {
@@ -511,5 +666,88 @@
 			transform: scale(3);
 			opacity: 0;
 		}
+	}
+
+	/* Map wrapper for loading state */
+	.map-wrapper {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+	}
+
+	.loading-overlay {
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.2);
+		pointer-events: none;
+		z-index: 99;
+	}
+
+	/* Featured markers for discovery mode */
+	:global(.featured-marker) {
+		cursor: pointer;
+		z-index: 10;
+		transition: transform 0.2s ease;
+	}
+
+	:global(.featured-marker:hover) {
+		transform: scale(1.1);
+		z-index: 20;
+	}
+
+	:global(.featured-marker-content) {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 8px;
+		background: rgba(255, 255, 255, 0.95);
+		backdrop-filter: blur(8px);
+		border-radius: 10px;
+		padding: 8px 12px;
+		transform: translate(-50%, calc(-100% - 10px));
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+		position: relative;
+	}
+
+	:global(.featured-marker-content::after) {
+		content: "";
+		position: absolute;
+		bottom: -5px;
+		left: 50%;
+		transform: translateX(-50%);
+		border-left: 6px solid transparent;
+		border-right: 6px solid transparent;
+		border-top: 6px solid rgba(255, 255, 255, 0.95);
+	}
+
+	:global(.featured-emoji) {
+		font-size: 1.25rem;
+		line-height: 1;
+	}
+
+	:global(.featured-label) {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0;
+	}
+
+	:global(.featured-name) {
+		color: #111;
+		font-size: 0.75rem;
+		font-weight: 600;
+		white-space: nowrap;
+		line-height: 1.2;
+		padding-bottom: 1px;
+	}
+
+	:global(.featured-region) {
+		color: #666;
+		font-size: 0.6rem;
+		font-weight: 500;
+		white-space: nowrap;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
 	}
 </style>
