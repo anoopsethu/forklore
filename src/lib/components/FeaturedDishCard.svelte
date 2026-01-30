@@ -33,8 +33,10 @@
     transition:fade={{ duration: 200 }}
 >
     <span class="dish-emoji">{displayEmoji}</span>
-    <span class="dish-name">{dish.name}</span>
-    <span class="dish-region">{dish.region.toUpperCase()}</span>
+    <div class="dish-info">
+        <span class="dish-name">{dish.name}</span>
+        <span class="dish-region">{dish.region.toUpperCase()}</span>
+    </div>
 </button>
 
 <style>
@@ -99,6 +101,14 @@
         margin-bottom: 0.25rem;
     }
 
+    .dish-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.1rem;
+        width: 100%;
+    }
+
     .dish-name {
         color: white;
         font-size: 0.95rem;
@@ -126,21 +136,31 @@
     /* Mobile */
     @media (max-width: 768px) {
         .featured-card {
-            padding: 0.75rem;
-            min-height: 80px;
-            gap: 0.35rem;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0.75rem 1rem;
+            height: auto;
+            min-height: 70px;
+            gap: 1rem;
+            text-align: left;
+        }
+
+        .dish-info {
+            align-items: flex-start;
         }
 
         .dish-emoji {
-            font-size: 1.5rem;
+            font-size: 1.75rem;
+            margin-bottom: 0;
         }
 
         .dish-name {
-            font-size: 0.8rem;
+            font-size: 0.9rem;
         }
 
         .dish-region {
-            font-size: 0.6rem;
+            font-size: 0.65rem;
         }
     }
 </style>

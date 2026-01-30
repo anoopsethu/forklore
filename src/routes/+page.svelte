@@ -62,6 +62,54 @@
     let sealVisible = $state(false);
     let isMobile = $state(false);
 
+    // Playback controls state
+    let isPlaying = $state(false);
+    let playbackIntervalId: ReturnType<typeof setInterval> | null = null;
+
+    // Playback control functions
+    function handlePlay() {
+        if (!dishHistory || dishHistory.steps.length === 0) return;
+
+        isPlaying = true;
+
+        // If at the end, reset to start
+        if (activeCardIndex >= dishHistory.steps.length - 1) {
+            activeCardIndex = 0;
+            scrollToCard(0);
+        }
+
+        playbackIntervalId = setInterval(() => {
+            if (dishHistory && activeCardIndex < dishHistory.steps.length - 1) {
+                const nextIndex = activeCardIndex + 1;
+                activeCardIndex = nextIndex;
+                scrollToCard(nextIndex);
+            } else {
+                // Reached the end, stop playing
+                handlePause();
+            }
+        }, 4000);
+    }
+
+    function handlePause() {
+        isPlaying = false;
+        if (playbackIntervalId) {
+            clearInterval(playbackIntervalId);
+            playbackIntervalId = null;
+        }
+    }
+
+    function handleReset() {
+        handlePause();
+        activeCardIndex = 0;
+        scrollToCard(0);
+    }
+
+    function handleStop() {
+        handlePause();
+        activeCardIndex = 0;
+        scrollToCard(0);
+    }
+
     onMount(() => {
         isMobile = window.innerWidth <= 768;
         const handleResize = () => {
@@ -433,30 +481,30 @@
         </div>
 
         <!-- Cards Panel - shows Featured Dishes (discovery) or History Cards (searched) -->
-        <div class="cards-panel-wrapper visible">
+        <div class="cards-panel-wrapper visible" class:discovery={!hasSearched}>
             {#if !hasSearched}
                 <!-- Featured Dishes (Discovery Mode) -->
                 <div class="cards-container">
                     <!-- Intro Section -->
                     <div class="intro-section mt-4">
-                        <h2 class="intro-title">What is Forklore?</h2>
+                        <h2 class="intro-title">Start your time travel</h2>
                         <div class="intro-card">
                             <div class="intro-item">
-                                <span class="intro-emoji">🗺️</span>
+                                <span class="intro-emoji">🔍️</span>
                                 <span class="intro-text"
-                                    >Trace the journey from origin to plate</span
+                                    >Pick a dish you love</span
                                 >
                             </div>
                             <div class="intro-item">
                                 <span class="intro-emoji">✨</span>
                                 <span class="intro-text"
-                                    >Instant AI research for any recipe</span
+                                    >Let AI research its history instantly</span
                                 >
                             </div>
                             <div class="intro-item">
-                                <span class="intro-emoji">🔍</span>
+                                <span class="intro-emoji">🗺️</span>
                                 <span class="intro-text"
-                                    >Search a dish to reveal its history</span
+                                    >Trace the path across the globe</span
                                 >
                             </div>
                         </div>
@@ -497,15 +545,20 @@
                     {#if dishHistory}
                         <div class="mobile-dish-header" in:fade>
                             <h2 class="mobile-dish-title">
-                                {dishHistory.emoji}
-                                {dishHistory.title}
+                                <span class="mobile-dish-emoji"
+                                    >{dishHistory.emoji}</span
+                                >
+                                <span class="mobile-dish-text"
+                                    >{dishHistory.title}</span
+                                >
                             </h2>
                         </div>
                     {:else if isSearching}
                         <div
-                            class="mobile-dish-header skeleton-entry"
-                            style="--delay: 0ms; gap: 0.5rem;"
+                            class="mobile-dish-header skeleton-entry mb-4"
+                            style="--delay: 0ms; gap: 0.75rem;"
                         >
+                            <Skeleton class="h-8 w-8 rounded-lg" />
                             <Skeleton class="h-8 w-48" />
                         </div>
                     {/if}
@@ -547,7 +600,7 @@
                                     <div class="timeline-content">
                                         <Skeleton class="h-3 w-12 mb-2" />
                                         <Skeleton class="h-5 w-40 mb-3" />
-                                        <Skeleton class="h-3 w-full" />
+                                        <Skeleton class="h-3 w-56" />
                                     </div>
                                 </div>
                             {/each}
@@ -614,6 +667,8 @@
                                 <div
                                     class="timeline-item"
                                     class:active={activeCardIndex === index}
+                                    class:playing={isPlaying &&
+                                        activeCardIndex === index}
                                     use:cardRef={index}
                                     onclick={() => handleCardClick(index)}
                                     onkeydown={(e) =>
@@ -623,7 +678,11 @@
                                     tabindex="0"
                                 >
                                     <div class="timeline-marker-wrapper">
-                                        <div class="timeline-marker">
+                                        <div
+                                            class="timeline-marker"
+                                            class:playing={isPlaying &&
+                                                activeCardIndex === index}
+                                        >
                                             <div class="marker-inner"></div>
                                         </div>
                                     </div>
@@ -673,29 +732,55 @@
     </div>
 
     <!-- Playback Controls (only in searched state) -->
-    {#if hasSearched && dishHistory}
+    {#if hasSearched}
         <div class="playback-controls">
-            <button class="playback-btn" aria-label="Restart">
-                <Icon
-                    icon="material-symbols:restart-alt-rounded"
-                    width="24"
-                    height="24"
-                />
-            </button>
-            <button class="playback-btn play-btn" aria-label="Play">
-                <Icon
-                    icon="material-symbols:play-arrow-rounded"
-                    width="32"
-                    height="32"
-                />
-            </button>
-            <button class="playback-btn" aria-label="Stop">
-                <Icon
-                    icon="material-symbols:stop-rounded"
-                    width="24"
-                    height="24"
-                />
-            </button>
+            {#if dishHistory}
+                <button
+                    class="playback-btn"
+                    aria-label="Reset"
+                    onclick={handleReset}
+                >
+                    <Icon
+                        icon="material-symbols:restart-alt-rounded"
+                        width="24"
+                        height="24"
+                    />
+                </button>
+                <button
+                    class="playback-btn play-btn"
+                    aria-label={isPlaying ? "Pause" : "Play"}
+                    onclick={() => (isPlaying ? handlePause() : handlePlay())}
+                >
+                    {#if isPlaying}
+                        <Icon
+                            icon="material-symbols:pause-rounded"
+                            width="32"
+                            height="32"
+                        />
+                    {:else}
+                        <Icon
+                            icon="material-symbols:play-arrow-rounded"
+                            width="32"
+                            height="32"
+                        />
+                    {/if}
+                </button>
+                <button
+                    class="playback-btn"
+                    aria-label="Stop"
+                    onclick={handleStop}
+                >
+                    <Icon
+                        icon="material-symbols:stop-rounded"
+                        width="24"
+                        height="24"
+                    />
+                </button>
+            {:else if isSearching}
+                <Skeleton class="h-[40px] w-[40px] rounded-full" />
+                <Skeleton class="h-[48px] w-[48px] rounded-full" />
+                <Skeleton class="h-[40px] w-[40px] rounded-full" />
+            {/if}
         </div>
     {/if}
 </div>
@@ -858,7 +943,7 @@
     .intro-title {
         color: white;
         font-size: 1.25rem;
-        font-weight: 700;
+        font-weight: 500;
         margin: 0 0 1rem 0;
     }
 
@@ -869,8 +954,7 @@
             linear-gradient(
                     180deg,
                     rgba(255, 255, 255, 0.3) 0%,
-                    rgba(255, 255, 255, 0.2) 50%,
-                    rgba(255, 255, 255, 0.2) 100%
+                    rgba(255, 255, 255, 0.1) 100%
                 )
                 border-box;
         border: 1.4px solid transparent;
@@ -1244,13 +1328,22 @@
         transform: translateX(-50%);
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem;
-        background: rgba(30, 30, 30, 0.9);
+        gap: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        background:
+            linear-gradient(rgba(30, 30, 30, 0.8), rgba(30, 30, 30, 0.8))
+                padding-box,
+            linear-gradient(
+                    180deg,
+                    rgba(255, 255, 255, 0.3) 0%,
+                    rgba(255, 255, 255, 0.1) 100%
+                )
+                border-box;
+        border: 1.4px solid transparent;
         backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 9999px;
         z-index: 100;
+        box-shadow: 0px 16px 32px rgba(0, 0, 0, 0.7);
     }
 
     .playback-btn {
@@ -1276,10 +1369,17 @@
         height: 48px;
         background: #ff8c00;
         color: black;
+        transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
 
     .playback-btn.play-btn:hover {
         background: #ffa333;
+        transform: scale(1.08);
+        box-shadow: 0 4px 16px rgba(255, 140, 0, 0.4);
+    }
+
+    .playback-btn.play-btn:active {
+        transform: scale(0.95);
     }
 
     /* Cards Panel */
@@ -1432,7 +1532,51 @@
         z-index: 0;
     }
 
+    .timeline-item.active::after {
+        background: linear-gradient(
+            to bottom,
+            rgba(255, 140, 0, 0.6) 0%,
+            rgba(255, 255, 255, 0.1) 100%
+        );
+    }
+
+    /* Traveling indicator during playback */
+    .timeline-item.playing::before {
+        content: "";
+        position: absolute;
+        left: 16px; /* Center with the line (20px - half of 8px dot) */
+        top: 2rem;
+        width: 10px;
+        height: 10px;
+        background: #ff8c00;
+        border-radius: 50%;
+        box-shadow:
+            0 0 10px #ff8c00,
+            0 0 20px #ff8c00,
+            0 0 30px rgba(255, 140, 0, 0.5);
+        z-index: 5;
+        animation: travel-down 4s linear infinite;
+    }
+
+    @keyframes travel-down {
+        0% {
+            top: 2rem;
+            opacity: 1;
+        }
+        90% {
+            opacity: 1;
+        }
+        100% {
+            top: calc(100% + 2.7rem - 10px);
+            opacity: 0;
+        }
+    }
+
     .timeline-item:last-child::after {
+        display: none;
+    }
+
+    .timeline-item:last-child.playing::before {
         display: none;
     }
 
@@ -1479,7 +1623,7 @@
         background: #ff8c00;
         width: 20px;
         height: 20px;
-        box-shadow: 0 0 15px rgba(255, 140, 0, 0.3);
+        box-shadow: 0 0 16px 1px rgba(255, 140, 0, 0.9);
     }
 
     .marker-inner {
@@ -1777,7 +1921,8 @@
             right: 0;
             top: auto;
             bottom: 0;
-            height: 400px; /* Increased further to handle longer descriptions */
+            height: auto; /* Changed to auto for dynamic height */
+            max-height: 70vh; /* Prevent overflowing the screen */
             max-width: none;
             width: 100%;
             display: flex;
@@ -1791,7 +1936,7 @@
             text-align: left;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             background: linear-gradient(
                 to top,
                 rgba(0, 0, 0, 0.8),
@@ -1801,11 +1946,25 @@
 
         .mobile-dish-title {
             color: white;
-            font-size: 1.25rem;
+            font-size: 1.35rem;
             font-weight: 700;
             margin: 0;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-            text-align: center;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            line-height: 1.3;
+        }
+
+        .mobile-dish-emoji {
+            font-size: 2.5rem;
+            flex-shrink: 0;
+        }
+
+        .mobile-dish-text {
+            flex: 1;
+            padding-top: 0.1rem;
         }
 
         .cards-fade-bottom {
@@ -1820,7 +1979,7 @@
             overflow-x: auto;
             overflow-y: hidden;
             scroll-snap-type: x mandatory;
-            padding: 0 1.5rem calc(1rem + env(safe-area-inset-bottom)); /* Respect safe area on mobile */
+            padding: 1rem 1.5rem calc(7.5rem + env(safe-area-inset-bottom)); /* Respect safe area and leave space for controls */
             gap: 1.25rem;
             flex: 1;
             align-items: stretch; /* Stretch items vertically to match tallest */
@@ -1840,12 +1999,83 @@
             height: 100%;
         }
 
+        .timeline-marker-wrapper {
+            display: flex;
+            align-items: center;
+            height: 26px;
+            width: 30px;
+            position: relative;
+            z-index: 2;
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-marker {
+            width: 18px;
+            height: 18px;
+            margin-left: 0;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            background: #000; /* Opaque background to mask the track line */
+        }
+
+        .timeline-item.active .timeline-marker {
+            width: 20px;
+            height: 20px;
+            background: #ff8c00;
+            border-color: white;
+            box-shadow: 0 0 12px rgba(255, 140, 0, 0.8);
+        }
+
         .timeline-item::after {
+            content: "";
+            position: absolute;
+            top: 14px; /* Center of marker-wrapper vertically */
+            left: 7px; /* Center of marker horizontally */
+            width: calc(100% + 1rem); /* Span card + gap */
+            height: 2px;
+            background: rgba(255, 255, 255, 0.5);
+            z-index: 1;
+        }
+
+        .timeline-item.active::after {
+            background: linear-gradient(
+                to right,
+                #ff8c00,
+                rgba(255, 255, 255, 0.2) 80%
+            );
+        }
+
+        .timeline-item:last-child::after {
             display: none;
         }
 
-        .timeline-marker-wrapper {
-            display: none;
+        .timeline-item.playing::before {
+            content: "";
+            position: absolute;
+            left: 7px;
+            top: 10px; /* Center on line */
+            width: 10px;
+            height: 10px;
+            background: #ff8c00;
+            border-radius: 50%;
+            box-shadow:
+                0 0 10px #ff8c00,
+                0 0 20px rgba(255, 140, 0, 0.5);
+            z-index: 5;
+            animation: travel-right 4s linear infinite;
+        }
+
+        @keyframes travel-right {
+            0% {
+                left: 7px;
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                left: calc(100% + 1rem + 7px - 10px);
+                opacity: 0;
+            }
         }
 
         .cards-panel::-webkit-scrollbar {
@@ -1857,29 +2087,28 @@
             flex-direction: column;
             justify-content: center;
             height: auto;
-            align-self: center;
+            padding: 1rem 0;
         }
 
         .timeline-item,
         .end-card {
             flex-shrink: 0;
-            width: 70vw;
-            height: 100%; /* Fill panel height */
+            width: 80vw; /* Slightly wider cards for better reading */
+            height: auto; /* Natural height */
             scroll-snap-align: center;
             scroll-snap-stop: always;
             margin-bottom: 0 !important;
             display: flex;
-            flex-direction: column; /* Ensure vertical stretching of children */
-            padding: 0.5rem 0;
+            flex-direction: column;
+            padding: 0;
         }
 
         .timeline-item :global(.glass-card),
         .end-card :global(.glass-card) {
-            height: 100%;
+            height: auto;
             width: 100%;
             display: flex;
             flex-direction: column;
-            flex: 1; /* Stretch to fill timeline-item height */
             margin-top: 0.5rem;
         }
 
@@ -1932,8 +2161,94 @@
             );
         }
 
+        .cards-panel-wrapper.discovery {
+            height: auto;
+            position: absolute;
+            top: auto;
+            bottom: 0;
+            padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+            background: linear-gradient(
+                to top,
+                rgba(0, 0, 0, 0.98) 0%,
+                rgba(0, 0, 0, 0.8) 70%,
+                transparent 100%
+            );
+            pointer-events: auto;
+        }
+
+        .cards-container {
+            position: relative; /* Overriding global absolute inset 0 */
+            padding: 0;
+            height: auto;
+            overflow: visible;
+        }
+
+        .discovery .intro-title {
+            margin-left: 1.5rem;
+            margin-right: 1.5rem;
+        }
+
+        .featured-cards {
+            display: flex;
+            flex-direction: row;
+            overflow-x: auto;
+            gap: 1rem;
+            padding: 0 0 1rem 0; /* Remove horizontal padding here */
+            scrollbar-width: none;
+            width: 100%;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .featured-cards::before {
+            content: "";
+            flex: 0 0 0.5rem;
+            width: 0.5rem;
+        }
+
+        .featured-cards::after {
+            content: "";
+            flex: 0 0 1.5rem;
+            width: 1.5rem;
+        }
+
+        .featured-cards::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Discovery state mobile optimizations */
+        .intro-section {
+            display: none;
+        }
+
+        .featured-cards :global(.featured-card) {
+            flex-shrink: 0;
+            width: auto;
+            min-width: 140px;
+        }
+
+        .featured-cards :global(.featured-card-skeleton) {
+            flex-shrink: 0;
+            width: 240px;
+            flex-direction: row;
+            justify-content: flex-start;
+            padding: 0.75rem 1rem;
+            height: auto;
+            min-height: 70px;
+            gap: 1rem;
+        }
+
+        .featured-cards :global(.featured-card-skeleton .skeleton-text) {
+            align-items: flex-start;
+            gap: 0.4rem;
+        }
+
         .map-container {
             top: 60px; /* Move map down to clear space for header */
+        }
+
+        .playback-controls {
+            bottom: calc(1.5rem + env(safe-area-inset-bottom));
+            z-index: 100;
         }
     }
 

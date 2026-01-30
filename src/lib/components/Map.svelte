@@ -182,7 +182,7 @@
 
 	let activePadding = $derived(
 		isMobile
-			? { top: 180, bottom: 340, left: 0, right: 0 }
+			? { top: 180, bottom: 280, left: 0, right: 0 }
 			: { top: 0, bottom: 0, left: 450, right: 0 },
 	);
 
@@ -490,8 +490,8 @@
 				addFeaturedMarkers();
 				// Move view to account for sidebar
 				map.easeTo({
-					center: [20, 10], // Shifted slightly right and down for better global view
-					zoom: 1.8,
+					center: [20, 15], // Moved higher for better mobile centering
+					zoom: isMobile ? 1.4 : 1.8,
 					padding: activePadding,
 					duration: 2000,
 				});
@@ -566,10 +566,7 @@
 		background: #ff8c00;
 		border-radius: 50%;
 		border: 3px solid #ffffff;
-		box-shadow:
-			0 0 15px #ff8c00,
-			0 0 30px #ff8c00,
-			0 2px 10px rgba(0, 0, 0, 0.5);
+		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 		transition:
 			transform 0.3s ease,
 			box-shadow 0.3s ease;
@@ -690,12 +687,22 @@
 	:global(.featured-marker) {
 		cursor: pointer;
 		z-index: 10;
-		transition: transform 0.2s ease;
+		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
 	:global(.featured-marker:hover) {
-		transform: scale(1.1);
+		transform: scale(1.05);
 		z-index: 20;
+	}
+
+	:global(.featured-marker:hover .featured-marker-content) {
+		background: #ffffff;
+		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+		transform: translate(-50%, calc(-100% - 14px));
+	}
+
+	:global(.featured-marker:hover .featured-marker-content::after) {
+		border-top-color: #ffffff;
 	}
 
 	:global(.featured-marker-content) {
@@ -710,6 +717,7 @@
 		transform: translate(-50%, calc(-100% - 10px));
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 		position: relative;
+		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
 	:global(.featured-marker-content::after) {
