@@ -444,19 +444,19 @@
                             <div class="intro-item">
                                 <span class="intro-emoji">🗺️</span>
                                 <span class="intro-text"
-                                    >Travel through time and taste</span
+                                    >Trace the journey from origin to plate</span
                                 >
                             </div>
                             <div class="intro-item">
                                 <span class="intro-emoji">✨</span>
                                 <span class="intro-text"
-                                    >Uncover hidden stories instantly</span
+                                    >Instant AI research for any recipe</span
                                 >
                             </div>
                             <div class="intro-item">
                                 <span class="intro-emoji">🔍</span>
                                 <span class="intro-text"
-                                    >Watch the journey come alive</span
+                                    >Search a dish to reveal its history</span
                                 >
                             </div>
                         </div>
@@ -576,8 +576,7 @@
                         {#if !isMobile}
                             <div class="dish-header-section">
                                 <h1 class="dish-main-title">
-                                    {dishHistory.title}: A Culinary Journey
-                                    Through Time
+                                    {dishHistory.title}
                                 </h1>
                             </div>
 
@@ -718,27 +717,7 @@
         height: 100vh;
         height: 100dvh;
         overflow: hidden;
-    }
-
-    .landing-background {
-        position: absolute;
-        inset: -30px;
-        background-image: url("/home-bg.png");
-        background-size: cover;
-        background-position: center;
-        transition: transform 0.1s ease-out;
-        z-index: 0;
-    }
-
-    .landing-overlay {
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(
-            180deg,
-            rgba(0, 0, 0, 0.6) -50%,
-            rgba(0, 0, 0, 0.8) 70%
-        );
-        z-index: 1;
+        background-color: #020202;
     }
 
     .map-container {
@@ -1235,7 +1214,7 @@
         overflow-y: auto;
         pointer-events: auto;
         scrollbar-width: none;
-        padding: 0 1rem 2rem 0; /* Added slight right padding to prevent border crop */
+        padding: 0 0rem 2rem 0; /* Added slight right padding to prevent border crop */
     }
 
     .cards-container::-webkit-scrollbar {
@@ -1389,7 +1368,7 @@
     }
 
     .stat-value {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
         font-weight: 700;
         color: white;
     }

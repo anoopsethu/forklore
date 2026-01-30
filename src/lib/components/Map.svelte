@@ -72,12 +72,14 @@
 		map = new mapboxgl.Map({
 			container: mapContainer,
 			style: "mapbox://styles/mapbox/dark-v11",
-			center: [0, 20],
+			center: [20, 10], // Slightly adjusted for discovery view
 			zoom: 1.5,
 			pitch: 0,
 			bearing: 0,
 			projection: "globe",
 		});
+
+		map.setPadding(activePadding);
 
 		map.on("load", () => {
 			// Add atmosphere/fog for the globe view
