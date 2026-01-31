@@ -1838,7 +1838,7 @@
         .search-container.searched {
             top: 4rem; /* Positioned below the centered corner logo */
             left: 1rem;
-            right: 4.5rem; /* Make space for zoom buttons */
+            right: 1rem;
             width: auto;
             max-width: none;
             transform: none;
@@ -1846,17 +1846,7 @@
         }
 
         .zoom-controls {
-            bottom: auto;
-            right: 1rem;
-            top: 4rem;
-            flex-direction: column;
-            border-radius: 12px;
-            background: rgba(30, 30, 30, 0.8);
-        }
-
-        .zoom-btn {
-            width: 40px;
-            height: 40px;
+            display: none;
         }
         .search-container.searched .search-wrapper {
             padding: 0.4rem 0.6rem 0.4rem 1rem;
