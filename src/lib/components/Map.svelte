@@ -45,6 +45,15 @@
 	let mapContainer: HTMLDivElement;
 	let map: mapboxgl.Map | null = null;
 
+	// Expose zoom methods for standard UI controls
+	export function zoomIn() {
+		if (map) map.zoomIn();
+	}
+
+	export function zoomOut() {
+		if (map) map.zoomOut();
+	}
+
 	// Extend marker to store step indices
 	interface CustomMarker extends mapboxgl.Marker {
 		_indices?: number[];

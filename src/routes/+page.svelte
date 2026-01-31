@@ -44,6 +44,7 @@
     let dishHistory = $state<DishHistory | null>(null);
     let error = $state<string | null>(null);
     let activeCardIndex = $state(-1);
+    let mapRef = $state<any>(null);
 
     // Featured dishes state
     let featuredDishes = $state<FeaturedDish[]>([]);
@@ -55,11 +56,25 @@
         hasSearched ? "history" : "discovery",
     );
 
+    // Recommended dishes for the end of history
+    let recommendedDishes = $derived(
+        featuredDishes
+            .filter((d) => {
+                const searchLower = searchQuery.toLowerCase().trim();
+                const titleLower = dishHistory?.title.toLowerCase() || "";
+                const dishLower = d.name.toLowerCase();
+                return (
+                    dishLower !== searchLower && !titleLower.includes(dishLower)
+                );
+            })
+            .slice(0, 6),
+    );
+
     // Card elements for intersection observer
     let cardElements: HTMLElement[] = [];
     let cardsContainer = $state<HTMLElement | null>(null);
     let sealElement = $state<HTMLElement | null>(null);
-    let sealVisible = $state(false);
+
     let isMobile = $state(false);
 
     // Playback controls state
@@ -311,7 +326,6 @@
         // Reset state for new results
         activeCardIndex = 0;
         cardsContainer.scrollTop = 0;
-        sealVisible = false;
 
         const observer = new IntersectionObserver(
             (entries) => {
@@ -338,31 +352,18 @@
             },
         );
 
-        const sealObserver = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    sealVisible = true;
-                }
-            },
-            {
-                root: cardsContainer,
-                threshold: 0.1,
-            },
-        );
-
         // Wait for next tick to ensure card elements are rendered
         setTimeout(() => {
             cardElements.forEach((el) => {
                 if (el) observer.observe(el);
             });
             if (sealElement) {
-                sealObserver.observe(sealElement);
+                // We keep sealElement as a ref if needed, but observer is removed
             }
         }, 0);
 
         return () => {
             observer.disconnect();
-            sealObserver.disconnect();
         };
     });
 
@@ -438,6 +439,7 @@
             mode={mapMode}
             onFeaturedClick={handleFeaturedClick}
             isLoading={isLoadingHistory}
+            bind:this={mapRef}
         />
     </div>
 
@@ -449,6 +451,33 @@
 
     <!-- UI Overlay (always visible container for interactions) -->
     <div class="ui-overlay">
+        <!-- Zoom Controls -->
+        <div class="zoom-controls">
+            <button
+                class="zoom-btn"
+                onclick={() => mapRef?.zoomIn()}
+                aria-label="Zoom In"
+            >
+                <Icon
+                    icon="material-symbols:add-rounded"
+                    width="24"
+                    height="24"
+                />
+            </button>
+            <div class="zoom-divider"></div>
+            <button
+                class="zoom-btn"
+                onclick={() => mapRef?.zoomOut()}
+                aria-label="Zoom Out"
+            >
+                <Icon
+                    icon="material-symbols:remove-rounded"
+                    width="24"
+                    height="24"
+                />
+            </button>
+        </div>
+
         <!-- Logo (persist and move) -->
         <!-- Logo (always in corner) -->
         <button
@@ -554,6 +583,7 @@
 
         <!-- Cards Panel - shows Featured Dishes (discovery) or History Cards (searched) -->
         <div class="cards-panel-wrapper visible" class:discovery={!hasSearched}>
+            <div class="cards-fade-top"></div>
             {#if !hasSearched}
                 <!-- Featured Dishes (Discovery Mode) -->
                 <div class="cards-container">
@@ -777,32 +807,29 @@
                             {/each}
                         </div>
 
-                        <!-- End Card -->
-                        <div class="end-card" bind:this={sealElement}>
-                            <div class="seal-container">
-                                <div
-                                    class="seal-rotate-wrapper"
-                                    class:stamped={sealVisible}
-                                >
-                                    <img
-                                        src="/seal.png"
-                                        alt="Official Forklore Seal"
-                                        class="seal-image"
-                                        class:stamped={sealVisible}
+                        <!-- Explore More Section -->
+                        <div
+                            class="explore-more-section"
+                            bind:this={sealElement}
+                        >
+                            <h2 class="explore-more-title">
+                                Explore more dishes
+                            </h2>
+                            <div class="featured-cards">
+                                {#each recommendedDishes as dish}
+                                    <FeaturedDishCard
+                                        {dish}
+                                        isLoading={isLoadingHistory}
+                                        onclick={() =>
+                                            handleFeaturedClick(dish)}
                                     />
-                                </div>
+                                {/each}
                             </div>
-                            <Button variant="outline" onclick={resetView}>
-                                Explore Another Dish
-                            </Button>
                         </div>
                     {/if}
                 </div>
-
-                {#if dishHistory}
-                    <div class="cards-fade-bottom"></div>
-                {/if}
             {/if}
+            <div class="cards-fade-bottom"></div>
         </div>
     </div>
 
@@ -1343,19 +1370,75 @@
         display: none;
     }
 
+    .cards-fade-top {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 40px;
+        pointer-events: none;
+        z-index: 10;
+        top: -1px; /* Align slightly above to prevent line gap */
+        background: linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.8) 0%,
+            transparent 100%
+        );
+    }
+
     .cards-fade-bottom {
         position: absolute;
         left: 0;
         right: 0;
-        height: 60px;
+        height: 100px;
         pointer-events: none;
         z-index: 10;
         bottom: 0;
         background: linear-gradient(
             to top,
-            rgba(0, 0, 0, 0.8) 0%,
+            rgba(0, 0, 0, 0.95) 0%,
+            rgba(0, 0, 0, 0.5) 40%,
             transparent 100%
         );
+    }
+
+    /* Zoom Controls */
+    .zoom-controls {
+        position: absolute;
+        bottom: 2rem;
+        right: 1rem;
+        display: flex;
+        flex-direction: column;
+        background: rgba(30, 30, 30, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        z-index: 100;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        pointer-events: auto;
+    }
+
+    .zoom-btn {
+        width: 40px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .zoom-btn:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .zoom-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.1);
+        margin: 0 -8px;
     }
 
     /* Playback Controls */
@@ -1466,7 +1549,7 @@
 
     .dish-main-title {
         font-size: 1.5rem;
-        font-weight: 700;
+        font-weight: 600;
         color: white;
         line-height: 1.3;
         margin: 0;
@@ -1653,7 +1736,7 @@
     .timeline-title {
         color: white;
         font-size: 1rem;
-        font-weight: 600;
+        font-weight: 500;
         margin: 0.25rem 0 0.5rem;
     }
 
@@ -1699,48 +1782,18 @@
             opacity: 1;
         }
     }
-
-    .end-card {
-        text-align: center;
-        padding: 3rem 1rem 5rem;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1rem;
+    .explore-more-section {
+        margin-top: 2.5rem;
+        margin-bottom: 2rem;
+        padding: 0 0.5rem;
     }
 
-    .seal-container {
+    .explore-more-title {
+        color: white;
+        font-size: 1.2rem;
+        font-weight: 500;
         margin-bottom: 1.5rem;
-    }
-
-    .seal-rotate-wrapper.stamped {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        animation: seal-ambient-rotate 60s linear infinite;
-    }
-
-    .seal-image {
-        width: 120px;
-        height: auto;
-        opacity: 0;
-        transform: scale(1.1);
-        filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
-        transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-    }
-
-    .seal-image.stamped {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    @keyframes seal-ambient-rotate {
-        from {
-            transform: rotate(0deg);
-        }
-        to {
-            transform: rotate(360deg);
-        }
+        text-align: left;
     }
 
     :global(.error-card) {
@@ -1785,11 +1838,25 @@
         .search-container.searched {
             top: 4rem; /* Positioned below the centered corner logo */
             left: 1rem;
-            right: 1rem;
+            right: 4.5rem; /* Make space for zoom buttons */
             width: auto;
             max-width: none;
             transform: none;
             padding: 0;
+        }
+
+        .zoom-controls {
+            bottom: auto;
+            right: 1rem;
+            top: 4rem;
+            flex-direction: column;
+            border-radius: 12px;
+            background: rgba(30, 30, 30, 0.8);
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
         }
         .search-container.searched .search-wrapper {
             padding: 0.4rem 0.6rem 0.4rem 1rem;
@@ -1878,7 +1945,8 @@
             padding-top: 0.1rem;
         }
 
-        .cards-fade-bottom {
+        .cards-fade-bottom,
+        .cards-fade-top {
             display: none;
         }
 
@@ -1942,8 +2010,7 @@
             display: none;
         }
 
-        .timeline-item,
-        .end-card {
+        .timeline-item {
             flex-shrink: 0;
             width: 80vw; /* Slightly wider cards for better reading */
             height: auto; /* Natural height */
@@ -1956,12 +2023,7 @@
             gap: 0.5rem;
         }
 
-        .timeline-item :global(.glass-card),
-        .end-card :global(.glass-card) {
-            height: auto;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
+        .timeline-item :global(.glass-card) {
             margin-top: 0.5rem;
         }
 
@@ -1971,8 +2033,7 @@
             height: 100%;
         }
 
-        .end-card {
-            justify-content: center;
+        .explore-more-section {
             display: none;
         }
 

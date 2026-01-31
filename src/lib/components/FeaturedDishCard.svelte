@@ -111,7 +111,7 @@
 
     .dish-name {
         color: white;
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         font-weight: 500;
         line-height: 1.25;
         display: -webkit-box;
@@ -130,7 +130,8 @@
         font-size: 0.7rem;
         font-weight: 500;
         letter-spacing: 0.05em;
-        margin-top: -0.2rem;
+        margin-top: 0.25rem;
+        line-height: 130%;
     }
 
     /* Mobile */
