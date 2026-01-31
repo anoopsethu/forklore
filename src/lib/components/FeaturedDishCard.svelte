@@ -143,7 +143,7 @@
             padding: 0.75rem 1rem;
             height: auto;
             min-height: 70px;
-            gap: 1rem;
+            gap: 0.6rem;
             text-align: left;
         }
 
@@ -162,6 +162,7 @@
 
         .dish-region {
             font-size: 0.65rem;
+            margin: 0.1rem 0 0 0;
         }
     }
 </style>

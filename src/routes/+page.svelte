@@ -2139,11 +2139,12 @@
         }
 
         .map-container {
-            top: 60px; /* Move map down to clear space for header */
+            top: 0;
+            bottom: 0;
         }
 
         .map-container.landing {
-            top: 150px; /* Push globe down more on landing page */
+            top: 0;
         }
 
         .playback-controls {

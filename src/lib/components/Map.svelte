@@ -65,15 +65,29 @@
 	const MARKER_COLOR = "#ff8c00";
 
 	let isMobile = $state(false);
+	let screenHeight = $state(0);
 
 	onMount(() => {
 		isMobile = window.innerWidth <= 768;
+		screenHeight = window.innerHeight;
 		const handleResize = () => {
 			isMobile = window.innerWidth <= 768;
+			screenHeight = window.innerHeight;
 		};
 		window.addEventListener("resize", handleResize);
 		return () => window.removeEventListener("resize", handleResize);
 	});
+
+	let activePadding = $derived(
+		isMobile
+			? {
+					top: mode === "discovery" ? 180 : 140, // More space for discovery search bar
+					bottom: mode === "discovery" ? 280 : 350, // Match the cards panel height
+					left: 0,
+					right: 0,
+				}
+			: { top: 0, bottom: 0, left: 450, right: 0 },
+	);
 
 	onMount(() => {
 		mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -188,12 +202,6 @@
 			}
 		}
 	});
-
-	let activePadding = $derived(
-		isMobile
-			? { top: 160, bottom: 350, left: 0, right: 0 }
-			: { top: 0, bottom: 0, left: 450, right: 0 },
-	);
 
 	// Fly to active step when activeIndex changes
 	$effect(() => {
@@ -329,13 +337,22 @@
 					const arcCoords = arc.geometry.coordinates as [
 						number,
 						number,
+						number,
 					][];
 
 					// Add all points except the last one (to avoid duplicates)
 					if (i < coordinates.length - 2) {
-						allCoords.push(...arcCoords.slice(0, -1));
+						allCoords.push(
+							...arcCoords
+								.slice(0, -1)
+								.map((c) => [c[0], c[1]] as [number, number]),
+						);
 					} else {
-						allCoords.push(...arcCoords);
+						allCoords.push(
+							...arcCoords.map(
+								(c) => [c[0], c[1]] as [number, number],
+							),
+						);
 					}
 				}
 
@@ -499,8 +516,8 @@
 				addFeaturedMarkers();
 				// Move view to account for sidebar
 				map.easeTo({
-					center: [20, 15], // Moved higher for better mobile centering
-					zoom: isMobile ? 1.4 : 1.8,
+					center: [20, 10], // Center latitude for balanced view
+					zoom: isMobile ? 1.1 : 1.8, // Zoom out more on mobile to show all markers
 					padding: activePadding,
 					duration: 2000,
 				});
