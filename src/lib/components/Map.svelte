@@ -182,7 +182,7 @@
 
 	let activePadding = $derived(
 		isMobile
-			? { top: 180, bottom: 280, left: 0, right: 0 }
+			? { top: 160, bottom: 350, left: 0, right: 0 }
 			: { top: 0, bottom: 0, left: 450, right: 0 },
 	);
 

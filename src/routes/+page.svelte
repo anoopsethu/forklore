@@ -64,30 +64,70 @@
 
     // Playback controls state
     let isPlaying = $state(false);
+    let wasPlaying = $state(false); // Track if playback has been initiated
     let playbackIntervalId: ReturnType<typeof setInterval> | null = null;
+    let playbackStartTime = $state(0); // Timestamp when playback started
+    let playbackAnimationId: number | null = null; // For requestAnimationFrame
+    let smoothProgress = $state(0); // 0-100, updated every frame
+
+    const STEP_DURATION = 4000; // 4 seconds per step
+
+    // Progress bar percentage for mobile movie mode (smooth continuous)
+    let progressPercent = $derived(smoothProgress);
+
+    // Animation loop for smooth progress
+    function animateProgress() {
+        if (!dishHistory || !isPlaying) return;
+
+        const totalDuration = dishHistory.steps.length * STEP_DURATION;
+        const elapsed = Date.now() - playbackStartTime;
+        const progress = Math.min((elapsed / totalDuration) * 100, 100);
+
+        smoothProgress = progress;
+
+        // Calculate which step we should be on based on elapsed time
+        const expectedStep = Math.floor(elapsed / STEP_DURATION);
+        if (
+            expectedStep !== activeCardIndex &&
+            expectedStep < dishHistory.steps.length
+        ) {
+            // First scroll to the card (this sets activeCardIndex internally)
+            scrollToCard(expectedStep);
+        }
+
+        // Continue animation or stop at end
+        if (elapsed < totalDuration) {
+            playbackAnimationId = requestAnimationFrame(animateProgress);
+        } else {
+            // Playback complete - reset to beginning
+            handlePause();
+            smoothProgress = 0;
+            activeCardIndex = 0;
+            scrollToCard(0);
+        }
+    }
 
     // Playback control functions
     function handlePlay() {
         if (!dishHistory || dishHistory.steps.length === 0) return;
 
         isPlaying = true;
+        wasPlaying = true;
 
         // If at the end, reset to start
         if (activeCardIndex >= dishHistory.steps.length - 1) {
             activeCardIndex = 0;
             scrollToCard(0);
+            smoothProgress = 0;
         }
 
-        playbackIntervalId = setInterval(() => {
-            if (dishHistory && activeCardIndex < dishHistory.steps.length - 1) {
-                const nextIndex = activeCardIndex + 1;
-                activeCardIndex = nextIndex;
-                scrollToCard(nextIndex);
-            } else {
-                // Reached the end, stop playing
-                handlePause();
-            }
-        }, 4000);
+        // Calculate start time based on current position
+        const totalDuration = dishHistory.steps.length * STEP_DURATION;
+        const currentProgress = smoothProgress / 100;
+        playbackStartTime = Date.now() - currentProgress * totalDuration;
+
+        // Start animation loop
+        playbackAnimationId = requestAnimationFrame(animateProgress);
     }
 
     function handlePause() {
@@ -96,18 +136,49 @@
             clearInterval(playbackIntervalId);
             playbackIntervalId = null;
         }
+        if (playbackAnimationId) {
+            cancelAnimationFrame(playbackAnimationId);
+            playbackAnimationId = null;
+        }
     }
 
     function handleReset() {
         handlePause();
         activeCardIndex = 0;
         scrollToCard(0);
+        smoothProgress = 0;
     }
 
     function handleStop() {
         handlePause();
         activeCardIndex = 0;
         scrollToCard(0);
+        smoothProgress = 0;
+    }
+
+    // Handle click/tap on the progress bar to jump to a step
+    function handleProgressClick(e: MouseEvent) {
+        if (!dishHistory) return;
+        const bar = e.currentTarget as HTMLElement;
+        const rect = bar.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percent = clickX / rect.width;
+        const stepIndex = Math.floor(percent * dishHistory.steps.length);
+        const clampedIndex = Math.max(
+            0,
+            Math.min(stepIndex, dishHistory.steps.length - 1),
+        );
+        activeCardIndex = clampedIndex;
+        scrollToCard(clampedIndex);
+
+        // Update smooth progress to match the clicked position
+        smoothProgress = percent * 100;
+
+        // If playing, recalculate start time so animation continues from new position
+        if (isPlaying && dishHistory) {
+            const totalDuration = dishHistory.steps.length * STEP_DURATION;
+            playbackStartTime = Date.now() - percent * totalDuration;
+        }
     }
 
     onMount(() => {
@@ -244,7 +315,7 @@
 
         const observer = new IntersectionObserver(
             (entries) => {
-                if (isManualScrolling) return;
+                if (isManualScrolling || isPlaying) return; // Don't update during programmatic scroll or playback
                 const intersecting = entries.filter((e) => e.isIntersecting);
                 if (intersecting.length > 0) {
                     const indices = intersecting
@@ -331,7 +402,8 @@
             });
         }
 
-        // Re-enable observer after scroll animation finishes (approx 800ms)
+        // Re-enable observer after scroll finishes (approx 800ms)
+        // Note: We do NOT pause the animation - it continues while scrolling
         scrollTimeout = setTimeout(() => {
             isManualScrolling = false;
         }, 800);
@@ -357,7 +429,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="app-container">
     <!-- Full-screen Map (always visible - globe in discovery, history in searched) -->
-    <div class="map-container">
+    <div class="map-container" class:landing={!hasSearched}>
         <Map
             steps={dishHistory?.steps || []}
             activeIndex={activeCardIndex}
@@ -555,7 +627,7 @@
                         </div>
                     {:else if isSearching}
                         <div
-                            class="mobile-dish-header skeleton-entry mb-4"
+                            class="mobile-dish-header skeleton-entry pb-4"
                             style="--delay: 0ms; gap: 0.75rem;"
                         >
                             <Skeleton class="h-8 w-8 rounded-lg" />
@@ -662,7 +734,10 @@
                         {/if}
 
                         <!-- History Steps - Timeline Format -->
-                        <div class="timeline-container">
+                        <div
+                            class="timeline-container"
+                            class:playing={isPlaying}
+                        >
                             {#each dishHistory.steps as step, index}
                                 <div
                                     class="timeline-item"
@@ -735,51 +810,79 @@
     {#if hasSearched}
         <div class="playback-controls">
             {#if dishHistory}
-                <button
-                    class="playback-btn"
-                    aria-label="Reset"
-                    onclick={handleReset}
-                >
-                    <Icon
-                        icon="material-symbols:restart-alt-rounded"
-                        width="24"
-                        height="24"
-                    />
-                </button>
-                <button
-                    class="playback-btn play-btn"
-                    aria-label={isPlaying ? "Pause" : "Play"}
-                    onclick={() => (isPlaying ? handlePause() : handlePlay())}
-                >
-                    {#if isPlaying}
+                <!-- Mobile Progress Bar (reserves space always, shows content after play) -->
+                {#if isMobile}
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <div
+                        class="playback-progress-bar"
+                        onclick={handleProgressClick}
+                    >
+                        {#if wasPlaying}
+                            <div class="progress-track">
+                                <div
+                                    class="progress-filled"
+                                    style="width: {progressPercent}%"
+                                ></div>
+                            </div>
+                            <div
+                                class="progress-indicator"
+                                style="left: clamp(8px, {progressPercent}%, calc(100% - 8px))"
+                            ></div>
+                        {/if}
+                    </div>
+                {/if}
+
+                <div class="playback-buttons">
+                    <button
+                        class="playback-btn"
+                        aria-label="Reset"
+                        onclick={handleReset}
+                    >
                         <Icon
-                            icon="material-symbols:pause-rounded"
-                            width="32"
-                            height="32"
+                            icon="material-symbols:restart-alt-rounded"
+                            width="24"
+                            height="24"
                         />
-                    {:else}
+                    </button>
+                    <button
+                        class="playback-btn play-btn"
+                        aria-label={isPlaying ? "Pause" : "Play"}
+                        onclick={() =>
+                            isPlaying ? handlePause() : handlePlay()}
+                    >
+                        {#if isPlaying}
+                            <Icon
+                                icon="material-symbols:pause-rounded"
+                                width="32"
+                                height="32"
+                            />
+                        {:else}
+                            <Icon
+                                icon="material-symbols:play-arrow-rounded"
+                                width="32"
+                                height="32"
+                            />
+                        {/if}
+                    </button>
+                    <button
+                        class="playback-btn"
+                        aria-label="Stop"
+                        onclick={handleStop}
+                    >
                         <Icon
-                            icon="material-symbols:play-arrow-rounded"
-                            width="32"
-                            height="32"
+                            icon="material-symbols:stop-rounded"
+                            width="24"
+                            height="24"
                         />
-                    {/if}
-                </button>
-                <button
-                    class="playback-btn"
-                    aria-label="Stop"
-                    onclick={handleStop}
-                >
-                    <Icon
-                        icon="material-symbols:stop-rounded"
-                        width="24"
-                        height="24"
-                    />
-                </button>
+                    </button>
+                </div>
             {:else if isSearching}
-                <Skeleton class="h-[40px] w-[40px] rounded-full" />
-                <Skeleton class="h-[48px] w-[48px] rounded-full" />
-                <Skeleton class="h-[40px] w-[40px] rounded-full" />
+                <div class="playback-buttons">
+                    <Skeleton class="h-[40px] w-[40px] rounded-full" />
+                    <Skeleton class="h-[48px] w-[48px] rounded-full" />
+                    <Skeleton class="h-[40px] w-[40px] rounded-full" />
+                </div>
             {/if}
         </div>
     {/if}
@@ -811,10 +914,6 @@
         z-index: 2;
         opacity: 0;
         animation: fadeInMap 0.8s ease-out forwards;
-    }
-
-    .map-container.visible {
-        opacity: 1;
     }
 
     @keyframes fadeInMap {
@@ -916,26 +1015,6 @@
         gap: 1rem;
     }
 
-    /* Featured Panel (Discovery Mode) */
-    .featured-panel {
-        position: absolute;
-        top: 50%;
-        left: 2rem;
-        transform: translateY(-50%);
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-        z-index: 10;
-        width: 340px;
-        max-height: 80vh;
-        overflow-y: auto;
-        padding: 1.5rem;
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 24px;
-    }
-
     .intro-section {
         margin-bottom: 1.5rem;
     }
@@ -981,13 +1060,6 @@
         color: rgba(255, 255, 255, 0.8);
         font-size: 0.95rem;
         line-height: 1.4;
-    }
-
-    .featured-title {
-        color: white;
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin: 2rem 0 1rem 0;
     }
 
     .featured-card-skeleton {
@@ -1142,17 +1214,6 @@
         opacity: 0.7;
     }
 
-    .searched-dish-name {
-        flex: 1;
-        color: white;
-        font-size: 1rem;
-        font-weight: 400;
-        padding-left: 0.75rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
     .search-ticker {
         position: absolute;
         left: 4rem; /* Adjusted to align with cursor: Icon + Padding + Input Padding */
@@ -1218,20 +1279,6 @@
         background: rgba(255, 255, 255, 0.8) !important;
     }
 
-    .landing-header {
-        position: absolute;
-        top: 35%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1rem;
-        z-index: 12;
-        width: 100%;
-        padding: 0 1rem;
-    }
-
     .logo-button {
         position: absolute;
         top: 25%;
@@ -1262,15 +1309,6 @@
 
     .corner-logo .landing-logo {
         height: 32px; /* Slightly smaller in the corner */
-    }
-
-    .landing-tagline {
-        color: white;
-        font-size: 1.2rem;
-        text-align: center;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-        max-width: 600px;
-        line-height: 1.5;
     }
 
     /* Cards Panel Wrapper */
@@ -1346,6 +1384,13 @@
         box-shadow: 0px 16px 32px rgba(0, 0, 0, 0.7);
     }
 
+    .playback-buttons {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
     .playback-btn {
         display: flex;
         align-items: center;
@@ -1414,12 +1459,6 @@
         color: white !important;
     }
 
-    .title-card {
-        text-align: center;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-
     /* New styles for searched state */
     .dish-header-section {
         margin-bottom: 1.5rem;
@@ -1478,42 +1517,6 @@
         color: rgba(255, 255, 255, 0.5);
         text-transform: uppercase;
         letter-spacing: 0.05em;
-    }
-
-    .dish-emoji {
-        font-size: 4rem;
-        line-height: 1;
-        /* create text shadow */
-        text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
-    }
-
-    .dish-title {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: white;
-        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-        margin: 0;
-        line-height: 140%;
-    }
-
-    .step-card {
-        margin-bottom: 1rem;
-        opacity: 0.6;
-        /* transform: translateX(-10px); */
-        /* transition: all 0.4s ease; */
-        cursor: pointer;
-    }
-
-    .step-card.active {
-        opacity: 1;
-        /* transform: translateX(0); */
-    }
-
-    .step-card.active :global(.glass-card) {
-        border-color: rgba(255, 255, 255, 0.3) !important;
-        box-shadow: 0 0 20px rgba(255, 140, 0, 0.15);
-        border-width: 2px !important;
-        background: rgba(41, 41, 41, 1) !important;
     }
 
     /* Timeline Styles */
@@ -1587,7 +1590,7 @@
         position: relative;
         z-index: 1;
         cursor: pointer;
-        opacity: 0.35;
+        opacity: 0.5;
         transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
         padding: 0.5rem 0;
     }
@@ -1626,6 +1629,11 @@
         box-shadow: 0 0 16px 1px rgba(255, 140, 0, 0.9);
     }
 
+    /* Disable marker transitions during playback for instant switching */
+    .timeline-container.playing .timeline-marker {
+        transition: none;
+    }
+
     .marker-inner {
         display: none;
     }
@@ -1634,55 +1642,12 @@
         flex: 1;
     }
 
-    .timeline-header {
-        margin-bottom: 0.5rem;
-    }
-
     .timeline-year {
         color: #ff8c00;
         font-weight: 600;
         font-size: 0.75rem;
         letter-spacing: 0.05em;
-        text-transform: uppercase;
-    }
-
-    .timeline-card-content {
-        position: relative;
-        padding: 1rem 1.25rem;
-        border-radius: 16px;
-        transition: all 0.3s ease;
-        margin-top: 1.2rem;
-        overflow-y: auto;
-        scrollbar-width: none;
-    }
-
-    .timeline-card-content::-webkit-scrollbar {
-        display: none;
-    }
-
-    .timeline-card-content::before {
-        content: "";
-        position: absolute;
-        left: 28px;
-        top: -7px;
-        width: 12px;
-        height: 12px;
-        background: rgb(21 21 21);
-        border-top: 1.6px solid rgba(255, 255, 255, 0.1);
-        border-left: 1.6px solid rgba(255, 255, 255, 0.1);
-        transform: rotate(45deg);
-        transition: all 0.3s ease;
-    }
-
-    .timeline-item.active .timeline-card-content {
-        background: rgb(34 34 34) !important;
-        border-color: rgba(255, 255, 255, 0) !important;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    }
-
-    .timeline-item.active .timeline-card-content::before {
-        background: rgb(34 34 34) !important;
-        border-color: transparent;
+        /* text-transform: uppercase; */
     }
 
     .timeline-title {
@@ -1733,13 +1698,6 @@
         to {
             opacity: 1;
         }
-    }
-
-    .step-description {
-        color: rgba(255, 255, 255, 0.8);
-        line-height: 1.6;
-        font-size: 0.9rem;
-        padding-left: 3rem;
     }
 
     .end-card {
@@ -1804,9 +1762,6 @@
 
     /* Responsive */
     @media (max-width: 768px) {
-        .landing-background {
-            background-position: left;
-        }
         .logo-button {
             top: 20%;
         }
@@ -1822,14 +1777,7 @@
         .corner-logo .landing-logo {
             height: 26px;
         }
-        .landing-header {
-            top: 30%;
-        }
-        .landing-tagline {
-            font-size: 1.2rem;
-            line-height: 1.5;
-            padding: 0;
-        }
+
         .search-container {
             top: 42%;
             padding: 0 1rem;
@@ -1846,21 +1794,7 @@
         .search-container.searched .search-wrapper {
             padding: 0.4rem 0.6rem 0.4rem 1rem;
         }
-        .features-container {
-            top: 52%;
-            flex-direction: column;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(6px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 24px;
-            padding: 1.5rem;
-            gap: 1rem;
-            width: calc(100% - 2rem);
-            max-width: 380px;
-        }
-        .step-description {
-            padding-left: 0;
-        }
+
         .corner-gradient.visible {
             background: linear-gradient(
                 180deg,
@@ -1868,32 +1802,9 @@
                 rgba(0, 0, 0, 0) 20%
             );
         }
-        .feature-card {
-            width: 100% !important;
-            flex-direction: row !important;
-            justify-content: flex-start !important;
-            text-align: left !important;
-            padding: 0 !important;
-            gap: 1rem !important;
-            background: transparent !important;
-            border: none !important;
-            transform: none !important;
-        }
-        .feature-card:last-child {
-            width: 100% !important;
-            background: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-        }
+
         :global(.feature-icon-wrapper img) {
             width: 32px !important;
-        }
-        .feature-text {
-            font-size: 1rem;
-            line-height: 1.4;
-            color: rgba(255, 255, 255, 0.8);
-            text-align: left;
-            font-weight: 400;
         }
 
         .search-container:not(.searched) .search-wrapper {
@@ -1904,8 +1815,8 @@
             left: 3.25rem;
         }
         :global(.search-input) {
-            font-size: 1rem !important;
-            padding: 0.5rem !important;
+            font-size: 1.2rem !important;
+            padding: 0.7rem !important;
         }
         .search-container:not(.searched) :global(.search-button) {
             width: 48px !important;
@@ -1932,7 +1843,7 @@
         }
 
         .mobile-dish-header {
-            padding: 1rem 1.5rem 0.5rem 1.5rem;
+            padding: 1rem 1.5rem 1.5rem 1.5rem;
             text-align: left;
             display: flex;
             align-items: center;
@@ -1946,19 +1857,19 @@
 
         .mobile-dish-title {
             color: white;
-            font-size: 1.35rem;
-            font-weight: 700;
+            font-size: 1.2rem;
+            font-weight: 600;
             margin: 0;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
             text-align: left;
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 0.5rem;
             line-height: 1.3;
         }
 
         .mobile-dish-emoji {
-            font-size: 2.5rem;
+            font-size: 2rem;
             flex-shrink: 0;
         }
 
@@ -1979,7 +1890,7 @@
             overflow-x: auto;
             overflow-y: hidden;
             scroll-snap-type: x mandatory;
-            padding: 1rem 1.5rem calc(7.5rem + env(safe-area-inset-bottom)); /* Respect safe area and leave space for controls */
+            padding: 0rem 1.5rem calc(6rem + env(safe-area-inset-bottom)); /* Respect safe area and leave space for controls */
             gap: 1.25rem;
             flex: 1;
             align-items: stretch; /* Stretch items vertically to match tallest */
@@ -2000,48 +1911,23 @@
         }
 
         .timeline-marker-wrapper {
-            display: flex;
-            align-items: center;
-            height: 26px;
-            width: 30px;
-            position: relative;
-            z-index: 2;
-            margin-bottom: 0.5rem;
+            display: none;
         }
 
         .timeline-marker {
-            width: 18px;
-            height: 18px;
-            margin-left: 0;
-            border: 2px solid rgba(255, 255, 255, 0.6);
-            background: #000; /* Opaque background to mask the track line */
+            display: none;
         }
 
         .timeline-item.active .timeline-marker {
-            width: 20px;
-            height: 20px;
-            background: #ff8c00;
-            border-color: white;
-            box-shadow: 0 0 12px rgba(255, 140, 0, 0.8);
+            display: none;
         }
 
         .timeline-item::after {
-            content: "";
-            position: absolute;
-            top: 14px; /* Center of marker-wrapper vertically */
-            left: 7px; /* Center of marker horizontally */
-            width: calc(100% + 1rem); /* Span card + gap */
-            height: 2px;
-            background: rgba(255, 255, 255, 0.5);
-            z-index: 1;
+            display: none;
         }
 
         .timeline-item.active::after {
-            background: linear-gradient(
-                to right,
-                #ff8c00,
-                rgba(255, 255, 255, 0.2) 80%
-            );
+            display: none;
         }
 
         .timeline-item:last-child::after {
@@ -2049,45 +1935,11 @@
         }
 
         .timeline-item.playing::before {
-            content: "";
-            position: absolute;
-            left: 7px;
-            top: 10px; /* Center on line */
-            width: 10px;
-            height: 10px;
-            background: #ff8c00;
-            border-radius: 50%;
-            box-shadow:
-                0 0 10px #ff8c00,
-                0 0 20px rgba(255, 140, 0, 0.5);
-            z-index: 5;
-            animation: travel-right 4s linear infinite;
-        }
-
-        @keyframes travel-right {
-            0% {
-                left: 7px;
-                opacity: 1;
-            }
-            90% {
-                opacity: 1;
-            }
-            100% {
-                left: calc(100% + 1rem + 7px - 10px);
-                opacity: 0;
-            }
+            display: none;
         }
 
         .cards-panel::-webkit-scrollbar {
             display: none;
-        }
-
-        .title-card {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            height: auto;
-            padding: 1rem 0;
         }
 
         .timeline-item,
@@ -2101,6 +1953,7 @@
             display: flex;
             flex-direction: column;
             padding: 0;
+            gap: 0.5rem;
         }
 
         .timeline-item :global(.glass-card),
@@ -2116,14 +1969,6 @@
             display: flex;
             flex-direction: column;
             height: 100%;
-        }
-
-        .timeline-card-content {
-            flex: 1; /* Stretch to fill timeline-content height */
-            display: flex;
-            flex-direction: column;
-            min-height: 0; /* Important for overflow: auto in flexbox */
-            overflow: visible;
         }
 
         .end-card {
@@ -2192,8 +2037,8 @@
             display: flex;
             flex-direction: row;
             overflow-x: auto;
-            gap: 1rem;
-            padding: 0 0 1rem 0; /* Remove horizontal padding here */
+            gap: 0.5rem;
+            padding: 0 0 0 0.5rem; /* Remove horizontal padding here */
             scrollbar-width: none;
             width: 100%;
             -webkit-overflow-scrolling: touch;
@@ -2246,9 +2091,72 @@
             top: 60px; /* Move map down to clear space for header */
         }
 
+        .map-container.landing {
+            top: 150px; /* Push globe down more on landing page */
+        }
+
         .playback-controls {
-            bottom: calc(1.5rem + env(safe-area-inset-bottom));
+            bottom: 0;
+            left: 0;
+            right: 0;
+            transform: none;
             z-index: 100;
+            flex-direction: column;
+            padding: 0 0 calc(0.75rem + env(safe-area-inset-bottom)) 0;
+            width: 100%;
+            max-width: none;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+
+        .playback-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding-top: 0.75rem;
+        }
+
+        .playback-progress-bar {
+            width: 100%;
+            height: 8px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            cursor: pointer;
+            margin: 0;
+            padding: 0;
+        }
+
+        .progress-track {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 0;
+        }
+
+        .progress-filled {
+            height: 100%;
+            background: #ff8c00;
+            border-radius: 0;
+        }
+
+        .progress-indicator {
+            position: absolute;
+            top: 1.5px;
+            width: 16px;
+            height: 16px;
+            background: #ff8c00;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow:
+                0 0 10px #ff8c00,
+                0 0 20px rgba(255, 140, 0, 0.4);
         }
     }
 
