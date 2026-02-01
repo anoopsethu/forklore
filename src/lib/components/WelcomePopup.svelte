@@ -160,11 +160,11 @@
             shuffledIcons,
             {
                 scale: 1,
-                duration: 0.35,
-                stagger: 0.06,
+                duration: 0.25,
+                stagger: 0.03,
                 ease: "back.out(1.7)",
             },
-            "-=0.2",
+            "-=0.25",
         );
 
         // 4. Content stagger in (starts shortly after icons begin popping)
