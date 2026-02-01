@@ -67,6 +67,45 @@
 	let isMobile = $state(false);
 	let screenHeight = $state(0);
 
+	// Auto-rotate state for discovery mode
+	let autoRotateEnabled = false;
+	let autoRotateRafId: number | null = null;
+	let inactivityTimerId: ReturnType<typeof setTimeout> | null = null;
+
+	function startAutoRotate() {
+		if (!map || autoRotateRafId !== null) return;
+		autoRotateEnabled = true;
+		const rotateSpeed = 0.015; // degrees per frame (~0.9 degrees per second at 60fps)
+
+		function rotate() {
+			if (!autoRotateEnabled || !map) {
+				autoRotateRafId = null;
+				return;
+			}
+			const center = map.getCenter();
+			map.setCenter([center.lng + rotateSpeed, center.lat]);
+			autoRotateRafId = requestAnimationFrame(rotate);
+		}
+		autoRotateRafId = requestAnimationFrame(rotate);
+	}
+
+	function stopAutoRotate() {
+		autoRotateEnabled = false;
+		if (autoRotateRafId !== null) {
+			cancelAnimationFrame(autoRotateRafId);
+			autoRotateRafId = null;
+		}
+	}
+
+	function resetInactivityTimer() {
+		if (inactivityTimerId) clearTimeout(inactivityTimerId);
+		inactivityTimerId = setTimeout(() => {
+			if (mode === "discovery" && !autoRotateEnabled) {
+				startAutoRotate();
+			}
+		}, 10000); // 10 seconds of inactivity
+	}
+
 	onMount(() => {
 		isMobile = window.innerWidth <= 768;
 		screenHeight = window.innerHeight;
@@ -168,6 +207,18 @@
 
 		// Disable scroll zoom for better UX with scrollytelling
 		map.scrollZoom.disable();
+
+		// Listen for user interactions to stop auto-rotate and start inactivity timer
+		const interactionEvents = ["mousedown", "touchstart", "wheel"];
+		function handleUserInteraction() {
+			stopAutoRotate();
+			resetInactivityTimer();
+		}
+		interactionEvents.forEach((evt) =>
+			mapContainer.addEventListener(evt, handleUserInteraction, {
+				passive: true,
+			}),
+		);
 	});
 
 	onDestroy(() => {
@@ -521,6 +572,10 @@
 					padding: activePadding,
 					duration: 2000,
 				});
+				// Start auto-rotate after the initial animation
+				setTimeout(() => {
+					if (mode === "discovery") startAutoRotate();
+				}, 2500);
 			} else {
 				map.once("styledata", () => {
 					addFeaturedMarkers();
@@ -530,9 +585,13 @@
 						padding: activePadding,
 						duration: 2000,
 					});
+					setTimeout(() => {
+						if (mode === "discovery") startAutoRotate();
+					}, 2500);
 				});
 			}
 		} else if (currentMode === "history") {
+			stopAutoRotate();
 			clearFeaturedMarkers();
 		}
 	});

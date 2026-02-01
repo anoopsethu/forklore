@@ -3,6 +3,7 @@
     import { fade, fly } from "svelte/transition";
     import Map from "$lib/components/Map.svelte";
     import FeaturedDishCard from "$lib/components/FeaturedDishCard.svelte";
+    import WelcomePopup from "$lib/components/WelcomePopup.svelte";
     import { Input } from "$lib/components/ui/input";
     import * as Card from "$lib/components/ui/card";
     import { Skeleton } from "$lib/components/ui/skeleton";
@@ -45,6 +46,7 @@
     let error = $state<string | null>(null);
     let activeCardIndex = $state(-1);
     let mapRef = $state<any>(null);
+    let showWelcomePopup = $state(false);
 
     // Featured dishes state
     let featuredDishes = $state<FeaturedDish[]>([]);
@@ -205,6 +207,15 @@
 
         // Fetch featured dishes on mount
         fetchFeaturedDishes();
+
+        // Check for first-time visit and show welcome popup
+        // TEMPORARILY DISABLED for CSS development - uncomment when done
+        // const hasVisited = localStorage.getItem("forklore_visited");
+        // if (!hasVisited) {
+        setTimeout(() => {
+            showWelcomePopup = true;
+        }, 500);
+        // }
 
         return () => window.removeEventListener("resize", handleResize);
     });
@@ -416,6 +427,11 @@
 
     function handleCardClick(index: number) {
         scrollToCard(index);
+    }
+
+    function handleWelcomeClose() {
+        localStorage.setItem("forklore_visited", "true");
+        showWelcomePopup = false;
     }
 </script>
 
@@ -914,6 +930,10 @@
         </div>
     {/if}
 </div>
+
+{#if showWelcomePopup}
+    <WelcomePopup onClose={handleWelcomeClose} />
+{/if}
 
 <style>
     :global(html) {
@@ -1819,7 +1839,7 @@
             top: 20%;
         }
         .logo-button.corner-logo {
-            top: 1.5rem;
+            top: 1rem;
             left: 50%;
             right: auto;
             transform: translateX(-50%);
@@ -1828,7 +1848,7 @@
             height: 40px;
         }
         .corner-logo .landing-logo {
-            height: 26px;
+            height: 24px;
         }
 
         .search-container {
@@ -1836,7 +1856,7 @@
             padding: 0 1rem;
         }
         .search-container.searched {
-            top: 4rem; /* Positioned below the centered corner logo */
+            top: 3.2rem; /* Positioned below the centered corner logo */
             left: 1rem;
             right: 1rem;
             width: auto;
@@ -1845,17 +1865,22 @@
             padding: 0;
         }
 
+        :global(.search-button) {
+            height: 36px !important;
+            width: 36px !important;
+        }
+
         .zoom-controls {
             display: none;
         }
         .search-container.searched .search-wrapper {
-            padding: 0.4rem 0.6rem 0.4rem 1rem;
+            padding: 0.4rem 0.4rem 0.4rem 1rem;
         }
 
         .corner-gradient.visible {
             background: linear-gradient(
                 180deg,
-                rgba(0, 0, 0, 0.7) 10%,
+                rgba(0, 0, 0, 0.95) 10%,
                 rgba(0, 0, 0, 0) 20%
             );
         }
