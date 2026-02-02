@@ -603,33 +603,8 @@
             {#if !hasSearched}
                 <!-- Featured Dishes (Discovery Mode) -->
                 <div class="cards-container">
-                    <!-- Intro Section -->
-                    <div class="intro-section mt-4">
-                        <h2 class="intro-title">Start your time travel</h2>
-                        <div class="intro-card">
-                            <div class="intro-item">
-                                <span class="intro-emoji">🔍️</span>
-                                <span class="intro-text"
-                                    >Pick a dish you love</span
-                                >
-                            </div>
-                            <div class="intro-item">
-                                <span class="intro-emoji">✨</span>
-                                <span class="intro-text"
-                                    >Let AI research its history instantly</span
-                                >
-                            </div>
-                            <div class="intro-item">
-                                <span class="intro-emoji">🗺️</span>
-                                <span class="intro-text"
-                                    >Trace the path across the globe</span
-                                >
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Featured Title -->
-                    <h2 class="intro-title">Explore Popular Dishes</h2>
+                    <h2 class="intro-title mt-4">Explore Popular Dishes</h2>
 
                     <!-- Featured Cards -->
                     <div class="featured-cards">
@@ -1383,7 +1358,7 @@
         overflow-y: auto;
         pointer-events: auto;
         scrollbar-width: none;
-        padding: 0 0rem 2rem 0; /* Added slight right padding to prevent border crop */
+        padding: 1.2rem 0rem 2rem 0; /* Added slight right padding to prevent border crop */
     }
 
     .cards-container::-webkit-scrollbar {

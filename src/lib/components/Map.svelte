@@ -254,10 +254,43 @@
 		}
 	});
 
+	// Track previous step location to detect same-location transitions
+	let prevStepLocation: { lat: number | null; lng: number | null } = {
+		lat: null,
+		lng: null,
+	};
+	let currentBearing = 0;
+
+	// Helper to check if two locations are the same (within ~20km)
+	function isSameLocation(
+		lat1: number | null,
+		lng1: number | null,
+		lat2: number | null,
+		lng2: number | null,
+	): boolean {
+		if (lat1 === null || lng1 === null || lat2 === null || lng2 === null)
+			return false;
+		const distance = turf.distance(
+			turf.point([lng1, lat1]),
+			turf.point([lng2, lat2]),
+			{ units: "kilometers" },
+		);
+		return distance < 20;
+	}
+
 	// Fly to active step when activeIndex changes
 	$effect(() => {
 		if (map && activeIndex >= 0 && activeIndex < steps.length) {
 			const step = steps[activeIndex];
+
+			// Check if this is a same-location transition
+			const sameLocation = isSameLocation(
+				step.lat,
+				step.lng,
+				prevStepLocation.lat,
+				prevStepLocation.lng,
+			);
+
 			if (step.lat === null || step.lng === null) {
 				// Global view for "Worldwide" steps
 				map.flyTo({
@@ -267,22 +300,56 @@
 					essential: true,
 					padding: activePadding,
 				});
+			} else if (sameLocation) {
+				// Same location: subtle bearing rotation for visual feedback
+				currentBearing = (currentBearing + 25) % 360;
+				map.easeTo({
+					center: [step.lng, step.lat],
+					bearing: currentBearing,
+					zoom: 5.2, // Slight zoom change
+					duration: 1200,
+					essential: true,
+					padding: activePadding,
+				});
 			} else {
+				// Different location: standard fly animation
+				currentBearing = 0; // Reset bearing
 				map.flyTo({
 					center: [step.lng, step.lat],
 					zoom: 5,
+					bearing: 0,
 					duration: 2000,
 					essential: true,
 					padding: activePadding,
 				});
 			}
 
-			// Highlight the active marker
+			// Update previous location
+			prevStepLocation = { lat: step.lat, lng: step.lng };
+
+			// Highlight the active marker (and trigger pulse for same-location)
 			markers.forEach((marker) => {
 				const el = marker.getElement();
 				// Check if this marker's group contains the active index
 				if (marker._indices && marker._indices.includes(activeIndex)) {
 					el.classList.add("active");
+
+					// DYNAMIC LABEL UPDATE:
+					// If this is a cluster, update the label to match the CURRENT active step's year
+					// This fixes the issue where clusters only show the first step's year
+					const yearLabel = el.querySelector(".marker-year-label");
+					if (yearLabel) {
+						yearLabel.textContent = step.year;
+					}
+
+					// For same-location transitions, add extra pulse effect
+					if (sameLocation) {
+						el.classList.add("same-location-pulse");
+						setTimeout(
+							() => el.classList.remove("same-location-pulse"),
+							600,
+						);
+					}
 				} else {
 					el.classList.remove("active");
 				}
@@ -684,6 +751,28 @@
 			0 0 40px #ff8c00,
 			0 0 60px #ff8c00,
 			0 2px 15px rgba(0, 0, 0, 0.5);
+	}
+
+	/* Extra pulse animation for same-location step transitions */
+	:global(.custom-marker.same-location-pulse .marker-dot) {
+		animation: same-location-pop 0.6s ease-out;
+	}
+
+	@keyframes same-location-pop {
+		0% {
+			transform: scale(1.3);
+		}
+		30% {
+			transform: scale(1.8);
+			box-shadow:
+				0 0 30px #ff8c00,
+				0 0 60px #ff8c00,
+				0 0 90px #ff8c00,
+				0 2px 20px rgba(0, 0, 0, 0.5);
+		}
+		100% {
+			transform: scale(1.3);
+		}
 	}
 
 	:global(.marker-label) {
