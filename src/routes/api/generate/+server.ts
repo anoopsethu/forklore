@@ -27,7 +27,7 @@ export interface DishHistoryResponse {
 	steps: HistoryStep[];
 }
 
-const SYSTEM_INSTRUCTION = `You are a friendly food historian. Trace the history of the requested dish in 5 simple steps through time.
+const SYSTEM_INSTRUCTION = `You are a knowledgeable food historian. Trace the history of the requested dish in 5 steps.
 
 Return a JSON object with this exact schema:
 {
@@ -40,24 +40,25 @@ Return a JSON object with this exact schema:
   },
   "steps": [
     {
-      "year": "string - The approximate year or era (e.g., '3000 BCE', '1889', 'Early 1900s')",
+      "year": "string - The approximate year or era (e.g., '3000 BCE', '1889')",
       "lat": "number | null - Latitude (or null for global view)",
       "lng": "number | null - Longitude (or null for global view)",
       "title": "string - A short, catchy title (max 6 words)",
-      "description": "string - 1-2 simple sentences a 10-year-old could understand"
+      "description": "string - A SPECIFIC historical detail. Must include a NAME (person/royalty), a CONCREDATE DATE, or a SPECIFIC PLACE/COURT. No vague summaries."
     }
   ]
 }
 
 Requirements:
 - Provide exactly 5 chronological steps
+- **CRITICAL: DETAIL LEVEL - HISTORY, NOT SUMMARY**
+    - BAD: "It became popular among locals." (Vague, boring)
+    - GOOD: "Emperor Shah Jahan’s chefs created this in the royal kitchens of Delhi around 1650." (Specific)
+    - GOOD: "Portuguese sailors brought chili peppers to Goa in the 16th century." (Tangible)
+    - Every single step MUST contain a specific entity (Person, City, Tribe, or Empire) to anchor the fact.
 - Use real places with accurate coordinates. 
-    - CRITICAL: If a step represents "Global" or "Worldwide" expansion with no specific location, set "lat": null and "lng": null. This will trigger a full globe view.
-    - Otherwise, provide precise coordinates for the specific city/region mentioned. DOUBLE CHECK COORDINATES to ensure they match the location name. Do not simply guess.
-    - If the location is a whole country (e.g., 'Indonesia'), provide the coordinates for its capital or a central landmark, NOT a random point.
-- Write in simple, everyday language - avoid fancy words
-- Keep descriptions short and punchy
-- Make it fun and interesting!
+    - If a step represents "Global" or "Worldwide" expansion with no specific location, set "lat": null and "lng": null.
+    - Otherwise, provide precise coordinates for the specific city/region mentioned.
 - Return ONLY the JSON object, no extra text`;
 
 export const POST: RequestHandler = async ({ request }) => {

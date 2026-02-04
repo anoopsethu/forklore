@@ -817,6 +817,59 @@
                                 {/each}
                             </div>
                         </div>
+
+                        <div class="ai-footer">
+                            <div class="ai-stars">
+                                <svg class="ai-star star-1" viewBox="0 0 24 24">
+                                    <path
+                                        d="M12 2C12 2 13 9 20 12C13 15 12 22 12 22C12 22 11 15 4 12C11 9 12 2 12 2Z"
+                                    />
+                                </svg>
+                                <svg class="ai-star star-2" viewBox="0 0 24 24">
+                                    <path
+                                        d="M12 2C12 2 13 9 20 12C13 15 12 22 12 22C12 22 11 15 4 12C11 9 12 2 12 2Z"
+                                    />
+                                </svg>
+                                <svg class="ai-star star-3" viewBox="0 0 24 24">
+                                    <path
+                                        d="M12 2C12 2 13 9 20 12C13 15 12 22 12 22C12 22 11 15 4 12C11 9 12 2 12 2Z"
+                                    />
+                                </svg>
+                                <svg
+                                    width="0"
+                                    height="0"
+                                    style="position: absolute;"
+                                >
+                                    <defs>
+                                        <linearGradient
+                                            id="ai-star-grad"
+                                            x1="0%"
+                                            y1="0%"
+                                            x2="100%"
+                                            y2="100%"
+                                        >
+                                            <stop
+                                                offset="0%"
+                                                style="stop-color:#FFD06D"
+                                            />
+                                            <stop
+                                                offset="100%"
+                                                style="stop-color:#FF6F5E"
+                                            />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                            </div>
+                            <div class="ai-footer-content">
+                                <p class="ai-powered-text">
+                                    Stories powered by OpenAI GPT 5.
+                                </p>
+                                <a
+                                    href="mailto:hello@forklore.app"
+                                    class="ai-report-link">Report issues here</a
+                                >
+                            </div>
+                        </div>
                     {/if}
                 </div>
             {/if}
@@ -1039,6 +1092,97 @@
 
     .intro-section {
         margin-bottom: 1.5rem;
+    }
+
+    .dish-main-title {
+        color: white;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    .ai-footer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0rem;
+        padding: 2rem 1rem;
+        margin-top: 1rem;
+        text-align: center;
+    }
+
+    .ai-stars {
+        position: relative;
+        width: 60px;
+        height: 60px;
+    }
+
+    .ai-star {
+        position: absolute;
+        fill: url(#ai-star-grad);
+        filter: drop-shadow(0 0 8px rgba(255, 111, 94, 0.3));
+    }
+
+    .star-1 {
+        width: 14px;
+        height: 14px;
+        top: 5px;
+        left: 16px;
+        animation: ai-star-scale 2s infinite ease-in-out;
+    }
+
+    .star-2 {
+        width: 32px;
+        height: 32px;
+        top: 10px;
+        left: 24px;
+        animation: ai-star-scale 2s infinite ease-in-out 0.4s;
+    }
+
+    .star-3 {
+        width: 20px;
+        height: 20px;
+        top: 32px;
+        left: 12px;
+        animation: ai-star-scale 2s infinite ease-in-out 0.8s;
+    }
+
+    @keyframes ai-star-scale {
+        0%,
+        100% {
+            transform: scale(0.8);
+            opacity: 0.6;
+        }
+        50% {
+            transform: scale(1.1);
+            opacity: 1;
+        }
+    }
+
+    .ai-footer-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0rem;
+    }
+
+    .ai-powered-text {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 1rem;
+        font-weight: 400;
+        margin: 0;
+    }
+
+    .ai-report-link {
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 1rem;
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+
+    .ai-report-link:hover {
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: underline;
     }
 
     .intro-title {
@@ -2024,6 +2168,10 @@
         }
 
         .explore-more-section {
+            display: none;
+        }
+
+        .ai-footer {
             display: none;
         }
 
