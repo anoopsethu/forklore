@@ -870,13 +870,14 @@
 	}
 
 	:global(.featured-marker:hover .featured-marker-content) {
-		background: #ffffff;
-		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+		background: rgba(75, 75, 75, 0.98);
+		border-color: rgba(255, 255, 255, 0.3);
+		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
 		transform: translate(-50%, calc(-100% - 14px));
 	}
 
 	:global(.featured-marker:hover .featured-marker-content::after) {
-		border-top-color: #ffffff;
+		border-top-color: rgba(75, 75, 75, 0.98);
 	}
 
 	:global(.featured-marker-content) {
@@ -884,12 +885,14 @@
 		flex-direction: row;
 		align-items: center;
 		gap: 8px;
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(8px);
-		border-radius: 10px;
-		padding: 8px 12px;
+		background: rgba(62, 62, 62, 0.85);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border: 1px solid rgba(255, 255, 255, 0.15);
+		border-radius: 12px;
+		padding: 8px 14px;
 		transform: translate(-50%, calc(-100% - 10px));
-		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 		position: relative;
 		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	}
@@ -897,17 +900,24 @@
 	:global(.featured-marker-content::after) {
 		content: "";
 		position: absolute;
-		bottom: -5px;
+		bottom: -6px;
 		left: 50%;
-		transform: translateX(-50%);
-		border-left: 6px solid transparent;
-		border-right: 6px solid transparent;
-		border-top: 6px solid rgba(255, 255, 255, 0.95);
+		width: 12px;
+		height: 12px;
+		background: inherit;
+		backdrop-filter: inherit;
+		-webkit-backdrop-filter: inherit;
+		border-right: 1px solid rgba(255, 255, 255, 0.15);
+		border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+		transform: translateX(-50%) rotate(45deg);
+		border-bottom-right-radius: 2px;
+		z-index: -1;
 	}
 
 	:global(.featured-emoji) {
-		font-size: 1.25rem;
+		font-size: 1.35rem;
 		line-height: 1;
+		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 	}
 
 	:global(.featured-label) {
@@ -918,20 +928,21 @@
 	}
 
 	:global(.featured-name) {
-		color: #111;
-		font-size: 0.75rem;
+		color: #ffffff;
+		font-size: 0.8rem;
 		font-weight: 600;
 		white-space: nowrap;
 		line-height: 1.2;
-		padding-bottom: 1px;
+		letter-spacing: 0.01em;
 	}
 
 	:global(.featured-region) {
-		color: #666;
+		color: rgba(255, 255, 255, 0.5);
 		font-size: 0.6rem;
-		font-weight: 500;
+		font-weight: 600;
 		white-space: nowrap;
 		text-transform: uppercase;
-		letter-spacing: 0.03em;
+		letter-spacing: 0.05em;
+		margin-top: 1px;
 	}
 </style>
