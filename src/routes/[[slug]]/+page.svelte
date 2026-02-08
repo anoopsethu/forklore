@@ -198,6 +198,23 @@
         }
     }
 
+    // Slug utilities for clean URLs
+    function toSlug(dishName: string): string {
+        return dishName
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, "") // Remove special chars except spaces and hyphens
+            .replace(/\s+/g, "-") // Replace spaces with hyphens
+            .replace(/-+/g, "-"); // Collapse multiple hyphens
+    }
+
+    function fromSlug(slug: string): string {
+        return slug
+            .split("-")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+    }
+
     onMount(() => {
         isMobile = window.innerWidth <= 768;
         const handleResize = () => {
@@ -208,16 +225,42 @@
         // Fetch featured dishes on mount
         fetchFeaturedDishes();
 
-        // Check for first-time visit and show welcome popup
-        // TEMPORARILY DISABLED for CSS development - uncomment when done
-        // const hasVisited = localStorage.getItem("forklore_visited");
-        // if (!hasVisited) {
-        setTimeout(() => {
-            showWelcomePopup = true;
-        }, 500);
-        // }
+        // Check for dish in URL path (deep linking) - e.g., /gallo-pinto
+        const pathSlug = window.location.pathname.slice(1); // Remove leading /
+        if (pathSlug && pathSlug !== "") {
+            const dishName = fromSlug(pathSlug);
+            searchQuery = dishName;
+            fetchDishHistory(dishName);
+        } else {
+            // Check for first-time visit and show welcome popup
+            // Only show if not loading a dish from URL
+            setTimeout(() => {
+                showWelcomePopup = true;
+            }, 500);
+        }
 
-        return () => window.removeEventListener("resize", handleResize);
+        // Handle browser back/forward navigation
+        const handlePopState = () => {
+            const pathSlug = window.location.pathname.slice(1);
+            if (pathSlug && pathSlug !== "") {
+                const dishName = fromSlug(pathSlug);
+                searchQuery = dishName;
+                fetchDishHistory(dishName);
+            } else {
+                // Reset to discovery mode without updating URL (already handled by browser)
+                hasSearched = false;
+                dishHistory = null;
+                searchQuery = "";
+                error = null;
+                activeCardIndex = -1;
+            }
+        };
+        window.addEventListener("popstate", handlePopState);
+
+        return () => {
+            window.removeEventListener("resize", handleResize);
+            window.removeEventListener("popstate", handlePopState);
+        };
     });
 
     async function fetchFeaturedDishes() {
@@ -235,12 +278,12 @@
         }
     }
 
-    async function handleFeaturedClick(dish: FeaturedDish) {
-        if (isLoadingHistory) return;
+    // Centralized function to fetch dish history (used by search, featured click, and deep linking)
+    async function fetchDishHistory(dishName: string) {
+        if (!dishName.trim() || isSearching) return;
 
-        searchQuery = dish.name;
-        isLoadingHistory = true;
         isSearching = true;
+        isLoadingHistory = true;
         error = null;
         dishHistory = null;
         hasSearched = true;
@@ -250,7 +293,7 @@
             const response = await fetch("/api/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ dish: dish.name }),
+                body: JSON.stringify({ dish: dishName.trim() }),
             });
 
             if (!response.ok) {
@@ -259,6 +302,9 @@
             }
 
             dishHistory = await response.json();
+
+            // Update URL with dish name (only if not already set)
+            updateUrlWithDish(dishName.trim());
         } catch (err) {
             error =
                 err instanceof Error
@@ -270,39 +316,25 @@
         }
     }
 
+    // Helper to update URL with dish name (path-based, slugified)
+    function updateUrlWithDish(dishName: string) {
+        const slug = toSlug(dishName);
+        const currentSlug = window.location.pathname.slice(1);
+        if (currentSlug !== slug) {
+            window.history.pushState({}, "", `/${slug}`);
+        }
+    }
+
+    async function handleFeaturedClick(dish: FeaturedDish) {
+        if (isLoadingHistory) return;
+        searchQuery = dish.name;
+        await fetchDishHistory(dish.name);
+    }
+
     async function handleSearch(e: Event) {
         e.preventDefault();
         if (!searchQuery.trim() || isSearching) return;
-
-        isSearching = true;
-        isLoadingHistory = true;
-        error = null;
-        dishHistory = null;
-        hasSearched = true;
-        activeCardIndex = -1;
-
-        try {
-            const response = await fetch("/api/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ dish: searchQuery.trim() }),
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || "Failed to generate history");
-            }
-
-            dishHistory = await response.json();
-        } catch (err) {
-            error =
-                err instanceof Error
-                    ? err.message
-                    : "An unexpected error occurred";
-        } finally {
-            isSearching = false;
-            isLoadingHistory = false;
-        }
+        await fetchDishHistory(searchQuery);
     }
 
     function resetView() {
@@ -311,6 +343,11 @@
         searchQuery = "";
         error = null;
         activeCardIndex = -1;
+
+        // Navigate to home (clear dish from URL)
+        if (window.location.pathname !== "/") {
+            window.history.pushState({}, "", "/");
+        }
     }
 
     // State for temporary disabling observer during manual scrolling
@@ -862,7 +899,7 @@
                             </div>
                             <div class="ai-footer-content">
                                 <p class="ai-powered-text">
-                                    Stories powered by OpenAI GPT 5.
+                                    Stories powered by Groq Llama 4.
                                 </p>
                                 <a
                                     href="mailto:hello@forklore.app"
@@ -1862,28 +1899,35 @@
 
     .timeline-content {
         flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
     }
 
     .timeline-year {
         color: #ff8c00;
-        font-weight: 600;
-        font-size: 0.75rem;
+        font-weight: 700;
+        font-size: 0.85rem;
         letter-spacing: 0.05em;
-        /* text-transform: uppercase; */
+        font-family: "Outfit", sans-serif;
     }
 
     .timeline-title {
         color: white;
-        font-size: 1rem;
-        font-weight: 500;
-        margin: 0.25rem 0 0.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0.1rem 0 0.6rem;
+        line-height: 1.3;
+        letter-spacing: -0.01em;
     }
 
     .timeline-description {
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 0.9rem;
-        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.95rem;
+        line-height: 1.6;
         margin: 0;
+        font-weight: 400;
+        letter-spacing: 0.01em;
     }
 
     /* Skeleton Loading - Timeline Format */
