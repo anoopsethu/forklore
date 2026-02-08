@@ -14,49 +14,41 @@ export interface HistoryStep {
 	description: string;
 }
 
-export interface DishStats {
-	yearsOld: string;
-	servingsPerYear: string;
-	globalReach: string;
-}
-
 export interface DishHistoryResponse {
 	title: string;
 	emoji: string;
-	stats: DishStats;
 	steps: HistoryStep[];
 }
 
-const SYSTEM_INSTRUCTION = `You are a world-class Food Historian and Storyteller. Trace the history of a dish through a series of rich, punchy narrative snapshots.
+const SYSTEM_INSTRUCTION = `You are a Food Historian. Trace the history of a dish through chronological story beats.
 
-Return a JSON object with this exact schema:
+Return a JSON object:
 {
-  "title": "string - The dish name with a short, vivid tagline (ABSOLUTELY NO EMOJIS HERE - use the 'emoji' field instead)",
-  "emoji": "string - A single emoji representing the heart of the dish",
-  "stats": {
-    "yearsOld": "string - The total age of the dish (e.g., '2,500', '150')",
-    "servingsPerYear": "string - Estimated annual servings globally (e.g., '95 B', '400 M')",
-    "globalReach": "string - Percentage of global popularity (e.g., '85%', '40%')"
-  },
+  "title": "Dish name with a short tagline (no emojis)",
+  "emoji": "Single emoji for the dish",
   "steps": [
     {
-      "year": "string - The year or era (e.g., '3000 BCE', '1889')",
-      "lat": "number | null - Latitude",
-      "lng": "number | null - Longitude",
-      "title": "string - A bold, engaging title (max 5 words)",
-      "description": "string - EXACTLY 2 punchy sentences. MAX 100 CHARACTERS TOTAL. Use PAST TENSE. Be evocative but BRIEF. Include one specific name/place."
+      "year": "Year or era (e.g., '1850', '3000 BCE')",
+      "lat": number or null,
+      "lng": number or null,
+      "title": "Short title (3-5 words)",
+      "description": "1-2 sentences, brief and evocative"
     }
   ]
 }
 
-Requirements:
-- Provide exactly 5 chronological story beats.
-- **BREVITY IS KEY**: Each description MUST be 2 sentences max, under 100 characters. No exceptions.
-- **TONE**: Evocative but punchy. Every word must earn its place.
-- **STORY OVER FACTS**: Instead of 'They brought rice', say 'Moorish travelers sowed golden grains.'
-- **SPECIFICITY**: Each step needs ONE specific entity (Person, City, Tribe, or Empire).
-- Use real places with accurate coordinates. 
-- Return ONLY the JSON object, no extra text`;
+Rules:
+- Provide 5 steps in chronological order
+- Use past tense
+- Include real place names with accurate coordinates
+- Keep descriptions brief`;
+
+// Model fallback chain - try these in order
+const MODELS = [
+	'moonshotai/kimi-k2-instruct-0905',
+	'meta-llama/llama-4-scout-17b-16e-instruct',
+	'meta-llama/llama-4-maverick-17b-128e-instruct'
+];
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -74,22 +66,17 @@ export const POST: RequestHandler = async ({ request }) => {
 			throw error(500, 'Groq API key not configured. Please set GROQ_API_KEY in your .env file.');
 		}
 
-		// Define the schema for validation
+		// Define the schema for validation - relaxed to allow 3-7 steps
 		const schema = z.object({
 			title: z.string(),
 			emoji: z.string(),
-			stats: z.object({
-				yearsOld: z.string(),
-				servingsPerYear: z.string(),
-				globalReach: z.string()
-			}),
 			steps: z.array(z.object({
 				year: z.string(),
 				lat: z.number().nullable(),
 				lng: z.number().nullable(),
 				title: z.string(),
 				description: z.string()
-			})).length(5)
+			})).min(3).max(7)
 		});
 
 		// Create Groq provider with explicit API key
@@ -97,15 +84,32 @@ export const POST: RequestHandler = async ({ request }) => {
 			apiKey: apiKey
 		});
 
-		// Generate the response using Llama 4 Scout (supports structured JSON outputs)
-		const { object } = await generateObject({
-			model: groq('meta-llama/llama-4-scout-17b-16e-instruct'),
-			system: SYSTEM_INSTRUCTION,
-			prompt: `Trace the history of: ${dish}`,
-			schema
-		});
+		let lastError: any = null;
 
-		return json(object);
+		// Try each model in the fallback chain
+		for (const modelName of MODELS) {
+			try {
+				console.log(`Trying model: ${modelName} for dish: ${dish}`);
+
+				const { object } = await generateObject({
+					model: groq(modelName),
+					system: SYSTEM_INSTRUCTION,
+					prompt: `Trace the history of: ${dish}`,
+					schema
+				});
+
+				console.log(`Success with model: ${modelName}`);
+				return json(object);
+			} catch (modelErr: any) {
+				console.error(`Model ${modelName} failed for "${dish}":`, modelErr.message);
+				lastError = modelErr;
+				// Continue to next model
+			}
+		}
+
+		// All models failed
+		console.error('All models failed for dish:', dish);
+		throw error(500, `Failed to generate history for "${dish}". Please try again.`);
 	} catch (err: any) {
 		// Re-throw SvelteKit errors
 		if (err && typeof err === 'object' && 'status' in err) {
@@ -114,8 +118,6 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// Handle other errors
 		console.error('Error generating dish history:', err);
-
-		// Extract more info if available
 		const message = err.message || 'An unexpected error occurred';
 		throw error(500, `${message}. Please try again.`);
 	}

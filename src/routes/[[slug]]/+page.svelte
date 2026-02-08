@@ -9,6 +9,13 @@
     import { Skeleton } from "$lib/components/ui/skeleton";
     import { Button } from "$lib/components/ui/button";
     import Icon from "@iconify/svelte";
+    import {
+        calculateTotalDistance,
+        calculateTimelineSpan,
+        countStops,
+        formatDistance,
+        formatTimelineSpan,
+    } from "$lib/statsUtils";
 
     interface Step {
         year: string;
@@ -21,11 +28,6 @@
     interface DishHistory {
         title: string;
         emoji: string;
-        stats: {
-            yearsOld: string;
-            servingsPerYear: string;
-            globalReach: string;
-        };
         steps: Step[];
     }
 
@@ -57,6 +59,31 @@
     let mapMode = $derived<"discovery" | "history">(
         hasSearched ? "history" : "discovery",
     );
+
+    // Derived stats from dish history steps
+    let derivedStats = $derived(() => {
+        if (
+            !dishHistory ||
+            !dishHistory.steps ||
+            dishHistory.steps.length === 0
+        ) {
+            return {
+                totalDistance: "0 km",
+                timelineSpan: "—",
+                stops: 0,
+            };
+        }
+
+        const distance = calculateTotalDistance(dishHistory.steps);
+        const timeline = calculateTimelineSpan(dishHistory.steps);
+        const stops = countStops(dishHistory.steps);
+
+        return {
+            totalDistance: formatDistance(distance),
+            timelineSpan: formatTimelineSpan(timeline),
+            stops,
+        };
+    });
 
     // Recommended dishes for the end of history
     let recommendedDishes = $derived(
@@ -774,27 +801,27 @@
                             <!-- Stats Cards -->
                             <div class="stats-cards">
                                 <div class="stat-card">
-                                    <span class="stat-icon">🏛️</span>
+                                    <span class="stat-icon">🗺️</span>
                                     <span class="stat-value"
-                                        >{dishHistory.stats.yearsOld}</span
+                                        >{derivedStats().totalDistance}</span
                                     >
-                                    <span class="stat-label">YEARS OLD</span>
+                                    <span class="stat-label">THE JOURNEY</span>
                                 </div>
                                 <div class="stat-card">
-                                    <span class="stat-icon">🍽️</span>
+                                    <span class="stat-icon">⏳</span>
                                     <span class="stat-value"
-                                        >{dishHistory.stats
-                                            .servingsPerYear}</span
+                                        >{derivedStats().timelineSpan}</span
                                     >
-                                    <span class="stat-label">SERVINGS/YEAR</span
+                                    <span class="stat-label"
+                                        >YEARS OF HISTORY</span
                                     >
                                 </div>
                                 <div class="stat-card">
-                                    <span class="stat-icon">🌎</span>
+                                    <span class="stat-icon">📍</span>
                                     <span class="stat-value"
-                                        >{dishHistory.stats.globalReach}</span
+                                        >{derivedStats().stops}</span
                                     >
-                                    <span class="stat-label">GLOBAL REACH</span>
+                                    <span class="stat-label">STOPS</span>
                                 </div>
                             </div>
                         {/if}
