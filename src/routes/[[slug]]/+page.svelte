@@ -2215,7 +2215,7 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.5rem;
+            padding: 0.5rem 0.75rem;
             background: rgba(0, 0, 0, 0.9);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
