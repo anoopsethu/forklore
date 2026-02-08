@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { generateObject } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
+import { createGroq } from '@ai-sdk/groq';
 import { z } from 'zod';
 import type { RequestHandler } from './$types';
 
@@ -53,7 +53,7 @@ Requirements:
 - Provide exactly 5 chronological steps
 - **CRITICAL: DETAIL LEVEL - HISTORY, NOT SUMMARY**
     - BAD: "It became popular among locals." (Vague, boring)
-    - GOOD: "Emperor Shah Jahan’s chefs created this in the royal kitchens of Delhi around 1650." (Specific)
+    - GOOD: "Emperor Shah Jahan's chefs created this in the royal kitchens of Delhi around 1650." (Specific)
     - GOOD: "Portuguese sailors brought chili peppers to Goa in the 16th century." (Tangible)
     - Every single step MUST contain a specific entity (Person, City, Tribe, or Empire) to anchor the fact.
 - Use real places with accurate coordinates. 
@@ -71,10 +71,10 @@ export const POST: RequestHandler = async ({ request }) => {
 			throw error(400, 'Missing or invalid dish parameter');
 		}
 
-		// Check if API key is configured
-		const apiKey = env.OPENAI_API_KEY;
+		// Get API key from SvelteKit's env system
+		const apiKey = env.GROQ_API_KEY;
 		if (!apiKey) {
-			throw error(500, 'OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.');
+			throw error(500, 'Groq API key not configured. Please set GROQ_API_KEY in your .env file.');
 		}
 
 		// Define the schema for validation
@@ -95,14 +95,14 @@ export const POST: RequestHandler = async ({ request }) => {
 			})).length(5)
 		});
 
-		// Create a configured OpenAI provider with our key
-		const openaiStack = createOpenAI({
+		// Create Groq provider with explicit API key
+		const groq = createGroq({
 			apiKey: apiKey
 		});
 
-		// Generate the response using the AI SDK with generateObject for reliability
+		// Generate the response using Llama 4 Scout (supports structured JSON outputs)
 		const { object } = await generateObject({
-			model: openaiStack('gpt-4o-mini'),
+			model: groq('meta-llama/llama-4-scout-17b-16e-instruct'),
 			system: SYSTEM_INSTRUCTION,
 			prompt: `Trace the history of: ${dish}`,
 			schema

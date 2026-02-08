@@ -29,7 +29,8 @@
 		"vite": "^7.2.6"
 	},
 	"dependencies": {
-		"@ai-sdk/google": "^3.0.13",
+		"@ai-sdk/google": "^3.0.22",
+		"@ai-sdk/groq": "^3.0.22",
 		"@ai-sdk/openai": "^3.0.23",
 		"@google/generative-ai": "^0.24.1",
 		"@iconify/svelte": "^5.2.1",
