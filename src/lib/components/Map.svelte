@@ -120,8 +120,8 @@
 	let activePadding = $derived(
 		isMobile
 			? {
-					top: mode === "discovery" ? 180 : 140, // More space for discovery search bar
-					bottom: mode === "discovery" ? 280 : 350, // Match the cards panel height
+					top: mode === "discovery" ? 160 : 140, // Adjusted to push globe down accurately
+					bottom: mode === "discovery" ? 180 : 350, // Decreased to use more space
 					left: 0,
 					right: 0,
 				}

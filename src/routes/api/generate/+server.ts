@@ -15,7 +15,8 @@ export interface HistoryStep {
 }
 
 export interface DishHistoryResponse {
-	title: string;
+	name: string;
+	tagline: string;
 	emoji: string;
 	steps: HistoryStep[];
 }
@@ -24,7 +25,8 @@ const SYSTEM_INSTRUCTION = `You are a Food Historian. Trace the history of a dis
 
 Return a JSON object:
 {
-  "title": "Dish name with a short tagline (no emojis)",
+  "name": "The dish name only (e.g., 'Lagman', 'Biryani', 'Sushi')",
+  "tagline": "A short evocative tagline (e.g., 'A Central Asian Noodle Legacy')",
   "emoji": "Single emoji for the dish",
   "steps": [
     {
@@ -40,7 +42,8 @@ Return a JSON object:
 Rules:
 - Provide 5 steps in chronological order
 - Use past tense
-- Include real place names with accurate coordinates
+- For specific locations, include real place names with accurate coordinates
+- For global/worldwide dispersal events, use null for lat and lng (this shows the whole globe)
 - Keep descriptions brief`;
 
 // Model fallback chain - try these in order
@@ -68,7 +71,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// Define the schema for validation - relaxed to allow 3-7 steps
 		const schema = z.object({
-			title: z.string(),
+			name: z.string(),
+			tagline: z.string(),
 			emoji: z.string(),
 			steps: z.array(z.object({
 				year: z.string(),

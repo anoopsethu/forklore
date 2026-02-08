@@ -26,7 +26,8 @@
     }
 
     interface DishHistory {
-        title: string;
+        name: string;
+        tagline: string;
         emoji: string;
         steps: Step[];
     }
@@ -90,10 +91,10 @@
         featuredDishes
             .filter((d) => {
                 const searchLower = searchQuery.toLowerCase().trim();
-                const titleLower = dishHistory?.title.toLowerCase() || "";
+                const nameLower = dishHistory?.name?.toLowerCase() || "";
                 const dishLower = d.name.toLowerCase();
                 return (
-                    dishLower !== searchLower && !titleLower.includes(dishLower)
+                    dishLower !== searchLower && !nameLower.includes(dishLower)
                 );
             })
             .slice(0, 6),
@@ -570,6 +571,7 @@
         <!-- Logo (always in corner) -->
         <button
             class="logo-button corner-logo"
+            class:mobile-searched-hidden={hasSearched && isMobile}
             onclick={handleLogoClick}
             aria-label="Toggle welcome information"
         >
@@ -581,7 +583,10 @@
         </button>
 
         <!-- Search Container (always in corner position) -->
-        <div class="search-container searched">
+        <div
+            class="search-container searched"
+            class:mobile-searched-hidden={hasSearched && isMobile}
+        >
             <form onsubmit={handleSearch} class="search-form">
                 <div
                     class="search-wrapper"
@@ -669,6 +674,51 @@
             </form>
         </div>
 
+        <!-- Mobile Sticky Header (fixed at top when viewing dish) -->
+        {#if isMobile && hasSearched}
+            <header class="mobile-sticky-header" in:fade>
+                {#if dishHistory}
+                    <button
+                        type="button"
+                        class="header-back-btn"
+                        onclick={resetView}
+                        aria-label="Return to discovery"
+                    >
+                        <Icon
+                            icon="material-symbols:arrow-back-rounded"
+                            width="24"
+                            height="24"
+                        />
+                    </button>
+                    <span class="header-emoji">{dishHistory.emoji}</span>
+                    <div class="header-dish-info pl-2">
+                        <span class="header-dish-name">{dishHistory.name}</span>
+                        <span class="header-dish-tagline"
+                            >{dishHistory.tagline}</span
+                        >
+                    </div>
+                {:else if isSearching}
+                    <button
+                        type="button"
+                        class="header-back-btn"
+                        onclick={resetView}
+                        aria-label="Return to discovery"
+                    >
+                        <Icon
+                            icon="material-symbols:arrow-back-rounded"
+                            width="24"
+                            height="24"
+                        />
+                    </button>
+                    <Skeleton class="h-10 w-10 rounded-lg" />
+                    <div class="header-dish-info">
+                        <Skeleton class="h-4 w-24 mb-1" />
+                        <Skeleton class="h-3 w-40" />
+                    </div>
+                {/if}
+            </header>
+        {/if}
+
         <!-- Cards Panel - shows Featured Dishes (discovery) or History Cards (searched) -->
         <div class="cards-panel-wrapper visible" class:discovery={!hasSearched}>
             <div class="cards-fade-top"></div>
@@ -706,38 +756,19 @@
                 </div>
             {:else}
                 <!-- History Cards (Searched State) -->
-                {#if isMobile}
-                    {#if dishHistory}
-                        <div class="mobile-dish-header" in:fade>
-                            <h2 class="mobile-dish-title">
-                                <span class="mobile-dish-emoji"
-                                    >{dishHistory.emoji}</span
-                                >
-                                <span class="mobile-dish-text"
-                                    >{dishHistory.title}</span
-                                >
-                            </h2>
-                        </div>
-                    {:else if isSearching}
-                        <div
-                            class="mobile-dish-header skeleton-entry pb-4"
-                            style="--delay: 0ms; gap: 0.75rem;"
-                        >
-                            <Skeleton class="h-8 w-8 rounded-lg" />
-                            <Skeleton class="h-8 w-48" />
-                        </div>
-                    {/if}
-                {/if}
 
                 <div class="cards-panel" bind:this={cardsContainer}>
                     {#if isSearching}
                         {#if !isMobile}
                             <div
-                                class="dish-header-section skeleton-entry"
+                                class="dish-header-section skeleton-entry mt-3"
                                 style="--delay: 0ms"
                             >
-                                <Skeleton class="h-8 w-11/12 mb-2" />
-                                <Skeleton class="h-8 w-2/3" />
+                                <Skeleton class="h-12 w-12 rounded-lg" />
+                                <div class="dish-title-stack">
+                                    <Skeleton class="h-6 w-40 mb-1" />
+                                    <Skeleton class="h-4 w-64" />
+                                </div>
                             </div>
 
                             <div
@@ -793,9 +824,17 @@
                         <!-- Large Title Section (Desktop only) -->
                         {#if !isMobile}
                             <div class="dish-header-section">
-                                <h1 class="dish-main-title">
-                                    {dishHistory.title}
-                                </h1>
+                                <span class="dish-emoji"
+                                    >{dishHistory.emoji}</span
+                                >
+                                <div class="dish-title-stack">
+                                    <h1 class="dish-main-title">
+                                        {dishHistory.name}
+                                    </h1>
+                                    <p class="dish-tagline-text">
+                                        {dishHistory.tagline}
+                                    </p>
+                                </div>
                             </div>
 
                             <!-- Stats Cards -->
@@ -812,8 +851,7 @@
                                     <span class="stat-value"
                                         >{derivedStats().timelineSpan}</span
                                     >
-                                    <span class="stat-label"
-                                        >YEARS OF HISTORY</span
+                                    <span class="stat-label">YEARS HISTORY</span
                                     >
                                 </div>
                                 <div class="stat-card">
@@ -1168,10 +1206,29 @@
 
     .dish-main-title {
         color: white;
-        font-size: 2.5rem;
+        font-size: 2rem;
         font-weight: 700;
         margin: 0;
         line-height: 1.2;
+    }
+
+    .dish-emoji {
+        font-size: 2.8rem;
+        flex-shrink: 0;
+    }
+
+    .dish-title-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .dish-tagline-text {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 1.05rem;
+        font-weight: 400;
+        margin: 0;
+        line-height: 1.3;
     }
 
     .ai-footer {
@@ -1755,6 +1812,9 @@
 
     /* New styles for searched state */
     .dish-header-section {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
         margin-bottom: 1.5rem;
     }
 
@@ -1778,7 +1838,7 @@
         align-items: center;
         justify-content: center;
         gap: 0.25rem;
-        padding: 0.75rem 1rem;
+        padding: 0.75rem 0.25rem;
         min-height: 105px;
         background:
             linear-gradient(rgba(30, 30, 30, 0.8), rgba(30, 30, 30, 0.8))
@@ -2037,7 +2097,7 @@
             top: 20%;
         }
         .logo-button.corner-logo {
-            top: 1rem;
+            top: 2rem;
             left: 50%;
             right: auto;
             transform: translateX(-50%);
@@ -2046,7 +2106,7 @@
             height: 40px;
         }
         .corner-logo .landing-logo {
-            height: 24px;
+            height: 28px;
         }
 
         .search-container {
@@ -2054,13 +2114,18 @@
             padding: 0 1rem;
         }
         .search-container.searched {
-            top: 3.2rem; /* Positioned below the centered corner logo */
-            left: 1rem;
-            right: 1rem;
+            top: 5.2rem; /* Positioned below the centered corner logo */
+            left: 1.4rem;
+            right: 1.4rem;
             width: auto;
             max-width: none;
             transform: none;
             padding: 0;
+        }
+
+        /* Hide elements on mobile when in searched state */
+        .mobile-searched-hidden {
+            display: none !important;
         }
 
         :global(.search-button) {
@@ -2078,8 +2143,8 @@
         .corner-gradient.visible {
             background: linear-gradient(
                 180deg,
-                rgba(0, 0, 0, 0.95) 10%,
-                rgba(0, 0, 0, 0) 20%
+                rgba(0, 0, 0, 0.8) 8%,
+                rgba(0, 0, 0, 0) 15%
             );
         }
 
@@ -2122,40 +2187,90 @@
             z-index: 10;
         }
 
-        .mobile-dish-header {
-            padding: 1rem 1.5rem 1.5rem 1.5rem;
-            text-align: left;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
+        /* Smooth gradient fade from map to cards */
+        .cards-panel-wrapper:not(.discovery)::before {
+            content: "";
+            position: absolute;
+            top: -60px;
+            left: 0;
+            right: 0;
+            height: 60px;
             background: linear-gradient(
-                to top,
-                rgba(0, 0, 0, 0.8),
-                transparent
+                to bottom,
+                transparent 0%,
+                rgba(0, 0, 0, 0.9) 100%
             );
+            pointer-events: none;
+            z-index: 1;
         }
 
-        .mobile-dish-title {
-            color: white;
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin: 0;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-            text-align: left;
+        /* Mobile Sticky Dish Header */
+        .mobile-sticky-header {
+            height: 72px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            line-height: 1.3;
+            padding: 0.5rem;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            /* border-bottom: 1px solid rgba(255, 255, 255, 0.1); */
+            pointer-events: auto;
         }
 
-        .mobile-dish-emoji {
-            font-size: 2rem;
+        .header-back-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: transparent;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
             flex-shrink: 0;
         }
 
-        .mobile-dish-text {
-            flex: 1;
-            padding-top: 0.1rem;
+        .header-back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .header-emoji {
+            font-size: 2.25rem;
+            flex-shrink: 0;
+        }
+
+        .header-dish-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.125rem;
+            min-width: 0;
+        }
+
+        .header-dish-name {
+            color: white;
+            font-size: 1.125rem;
+            font-weight: 600;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-dish-tagline {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.875rem;
+            font-weight: 400;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .cards-fade-bottom,
