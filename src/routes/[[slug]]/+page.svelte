@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import { fade, fly } from "svelte/transition";
     import Map from "$lib/components/Map.svelte";
     import FeaturedDishCard from "$lib/components/FeaturedDishCard.svelte";
@@ -365,7 +365,13 @@
         await fetchDishHistory(searchQuery);
     }
 
-    function resetView() {
+    async function resetView() {
+        // Call map reset FIRST, before state changes might trigger other effects
+        if (mapRef) {
+            mapRef.resetToGlobe();
+        }
+
+        // Then update state
         hasSearched = false;
         dishHistory = null;
         searchQuery = "";
@@ -519,7 +525,11 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="app-container">
     <!-- Full-screen Map (always visible - globe in discovery, history in searched) -->
-    <div class="map-container" class:landing={!hasSearched}>
+    <div
+        class="map-container"
+        class:landing={!hasSearched}
+        class:loading={isSearching || isLoadingHistory}
+    >
         <Map
             steps={dishHistory?.steps || []}
             activeIndex={activeCardIndex}
@@ -1101,6 +1111,10 @@
         animation: fadeInMap 0.8s ease-out forwards;
     }
 
+    .map-container.loading {
+        pointer-events: none;
+    }
+
     @keyframes fadeInMap {
         from {
             opacity: 0;
@@ -1680,7 +1694,7 @@
         backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
-        z-index: 100;
+        z-index: 1000;
         overflow: hidden;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
         pointer-events: auto;
@@ -2143,7 +2157,7 @@
         .corner-gradient.visible {
             background: linear-gradient(
                 180deg,
-                rgba(0, 0, 0, 0.8) 8%,
+                rgba(0, 0, 0, 0.7) 10%,
                 rgba(0, 0, 0, 0) 15%
             );
         }
@@ -2198,7 +2212,7 @@
             background: linear-gradient(
                 to bottom,
                 transparent 0%,
-                rgba(0, 0, 0, 0.9) 100%
+                rgba(0, 0, 0, 0.7) 100%
             );
             pointer-events: none;
             z-index: 1;
@@ -2216,7 +2230,6 @@
             align-items: center;
             gap: 0.5rem;
             padding: 0.5rem 0.75rem;
-            background: rgba(0, 0, 0, 0.9);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             /* border-bottom: 1px solid rgba(255, 255, 255, 0.1); */
@@ -2291,11 +2304,7 @@
             flex: 1;
             align-items: stretch; /* Stretch items vertically to match tallest */
             scrollbar-width: none;
-            background: linear-gradient(
-                to bottom,
-                rgba(0, 0, 0, 0.8),
-                rgba(0, 0, 0, 0.95)
-            );
+            background: rgba(0, 0, 0, 0.7);
         }
 
         .timeline-container {
@@ -2483,6 +2492,10 @@
         .map-container {
             top: 0;
             bottom: 0;
+        }
+
+        .map-container.loading {
+            pointer-events: none;
         }
 
         .map-container.landing {

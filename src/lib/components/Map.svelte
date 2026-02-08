@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
+	import { onMount, onDestroy, tick } from "svelte";
 	import mapboxgl from "mapbox-gl";
 	import "mapbox-gl/dist/mapbox-gl.css";
 	import { MAPBOX_TOKEN } from "$lib/config";
@@ -46,12 +46,41 @@
 	let map: mapboxgl.Map | null = null;
 
 	// Expose zoom methods for standard UI controls
+	// Expose zoom methods for standard UI controls
 	export function zoomIn() {
 		if (map) map.zoomIn();
 	}
 
 	export function zoomOut() {
 		if (map) map.zoomOut();
+	}
+
+	export function resetToGlobe() {
+		if (!map) return;
+
+		// Only clear history step markers and route, NOT featured markers
+		markers.forEach((m) => m.remove());
+		markers = [];
+
+		// Clear the route line
+		const source = map.getSource("route") as mapboxgl.GeoJSONSource;
+		if (source) {
+			source.setData({
+				type: "Feature",
+				properties: {},
+				geometry: {
+					type: "LineString",
+					coordinates: [],
+				},
+			});
+		}
+
+		// Reset transition state
+		prevStepLocation = { lat: null, lng: null };
+		currentBearing = 0;
+
+		// NOTE: We do NOT call flyTo here - the mode change effect handles that
+		// when mode switches to "discovery", it will add featured markers and position the globe
 	}
 
 	// Extend marker to store step indices
@@ -233,23 +262,28 @@
 		// Track steps.length to ensure reactivity
 		const stepsCount = steps.length;
 
-		if (map && stepsCount > 0) {
-			// Wait for map to be fully loaded
-			if (map.isStyleLoaded()) {
-				console.log("Adding markers for", stepsCount, "steps");
-				updateRoute();
-				addMarkers();
-			} else {
-				// If style not loaded yet, wait for it
-				map.once("styledata", () => {
-					console.log(
-						"Style loaded, adding markers for",
-						stepsCount,
-						"steps",
-					);
+		if (map) {
+			if (stepsCount > 0) {
+				// Wait for map to be fully loaded
+				if (map.isStyleLoaded()) {
+					console.log("Adding markers for", stepsCount, "steps");
 					updateRoute();
 					addMarkers();
-				});
+				} else {
+					// If style not loaded yet, wait for it
+					map.once("styledata", () => {
+						console.log(
+							"Style loaded, adding markers for",
+							stepsCount,
+							"steps",
+						);
+						updateRoute();
+						addMarkers();
+					});
+				}
+			} else {
+				// Steps array is empty - just clear markers and route
+				clearMap();
 			}
 		}
 	});
@@ -582,6 +616,32 @@
 		}
 	}
 
+	function clearMap() {
+		if (!map) return;
+		console.log("Clearing map markers and route");
+
+		// Remove all markers
+		markers.forEach((m) => m.remove());
+		markers = [];
+
+		// Clear the route source
+		const source = map.getSource("route") as mapboxgl.GeoJSONSource;
+		if (source) {
+			source.setData({
+				type: "Feature",
+				properties: {},
+				geometry: {
+					type: "LineString",
+					coordinates: [],
+				},
+			});
+		}
+
+		// Reset transition state
+		prevStepLocation = { lat: null, lng: null };
+		currentBearing = 0;
+	}
+
 	// Featured markers for discovery mode
 	let featuredMarkers: mapboxgl.Marker[] = [];
 
@@ -624,39 +684,33 @@
 		featuredMarkers = [];
 	}
 
-	// Effect to handle featured dishes
 	$effect(() => {
 		const dishCount = featuredDishes.length;
 		const currentMode = mode;
 
 		if (map && currentMode === "discovery" && dishCount > 0) {
-			if (map.isStyleLoaded()) {
-				addFeaturedMarkers();
-				// Move view to account for sidebar
-				map.easeTo({
-					center: [20, 10], // Center latitude for balanced view
-					zoom: isMobile ? 1.1 : 1.8, // Zoom level adjusted for balanced mobile view
-					padding: activePadding,
-					duration: 2000,
-				});
-				// Start auto-rotate after the initial animation
-				setTimeout(() => {
-					if (mode === "discovery") startAutoRotate();
-				}, 2500);
-			} else {
-				map.once("styledata", () => {
-					addFeaturedMarkers();
-					map!.easeTo({
-						center: [20, 10],
-						zoom: isMobile ? 1.1 : 1.8,
-						padding: activePadding,
-						duration: 2000,
-					});
-					setTimeout(() => {
-						if (mode === "discovery") startAutoRotate();
-					}, 2500);
-				});
-			}
+			console.log("Adding featured markers and positioning globe");
+
+			// Add featured markers
+			addFeaturedMarkers();
+
+			// Move view to discovery position (globe view with featured markers)
+			console.log("Flying to discovery view position");
+			map.flyTo({
+				center: [20, 10],
+				zoom: isMobile ? 1.1 : 1.8,
+				pitch: 0,
+				bearing: 0,
+				padding: activePadding,
+				duration: 2000,
+			});
+
+			// Start auto-rotate after the animation
+			setTimeout(() => {
+				if (mode === "discovery") {
+					startAutoRotate();
+				}
+			}, 2500);
 		} else if (currentMode === "history") {
 			stopAutoRotate();
 			clearFeaturedMarkers();
