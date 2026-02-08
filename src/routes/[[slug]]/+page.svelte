@@ -701,7 +701,7 @@
                         />
                     </button>
                     <span class="header-emoji">{dishHistory.emoji}</span>
-                    <div class="header-dish-info pl-2">
+                    <div class="header-dish-info pl-1">
                         <span class="header-dish-name">{dishHistory.name}</span>
                         <span class="header-dish-tagline"
                             >{dishHistory.tagline}</span
@@ -2033,7 +2033,7 @@
     .timeline-description {
         color: rgba(255, 255, 255, 0.8);
         font-size: 0.95rem;
-        line-height: 1.6;
+        line-height: 1.45;
         margin: 0;
         font-weight: 400;
         letter-spacing: 0.01em;

@@ -864,7 +864,7 @@
 	:global(.marker-year-label::after) {
 		content: "";
 		position: absolute;
-		bottom: -6px;
+		bottom: -5px;
 		left: 50%;
 		transform: translateX(-50%);
 		border-left: 6px solid transparent;
