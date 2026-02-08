@@ -2230,7 +2230,7 @@
             align-items: center;
             gap: 0.5rem;
             padding: 0.5rem 0.75rem;
-            backdrop-filter: blur(12px);
+            /* backdrop-filter: blur(12px); */
             -webkit-backdrop-filter: blur(12px);
             /* border-bottom: 1px solid rgba(255, 255, 255, 0.1); */
             pointer-events: auto;
