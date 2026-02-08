@@ -44,16 +44,17 @@ Return a JSON object with this exact schema:
       "lat": "number | null - Latitude",
       "lng": "number | null - Longitude",
       "title": "string - A bold, engaging title (max 5 words)",
-      "description": "string - A punchy, atmospheric story beat (max 160 chars). Use PAST TENSE. Focus on SENSORY details (scents, sounds, heat, drama). It must feel 'flavorful', not clinical. Include specific names/places."
+      "description": "string - EXACTLY 2 punchy sentences. MAX 100 CHARACTERS TOTAL. Use PAST TENSE. Be evocative but BRIEF. Include one specific name/place."
     }
   ]
 }
 
 Requirements:
 - Provide exactly 5 chronological story beats.
-- **TONE**: Atmospheric and evocative, but punchy. Every sentence should drip with personality.
-- **STORY OVER FACTS**: Instead of 'They brought rice', say 'Moorish travelers sowed the first golden grains...'.
-- **STILL REQUIRE SPECIFICITY**: Every step MUST contain a specific entity (Person, City, Tribe, or Empire) to anchor the fact.
+- **BREVITY IS KEY**: Each description MUST be 2 sentences max, under 100 characters. No exceptions.
+- **TONE**: Evocative but punchy. Every word must earn its place.
+- **STORY OVER FACTS**: Instead of 'They brought rice', say 'Moorish travelers sowed golden grains.'
+- **SPECIFICITY**: Each step needs ONE specific entity (Person, City, Tribe, or Empire).
 - Use real places with accurate coordinates. 
 - Return ONLY the JSON object, no extra text`;
 

@@ -350,6 +350,14 @@
         }
     }
 
+    function handleLogoClick() {
+        if (!hasSearched) {
+            showWelcomePopup = true;
+        } else {
+            resetView();
+        }
+    }
+
     // State for temporary disabling observer during manual scrolling
     let isManualScrolling = false;
     let scrollTimeout: number | null;
@@ -535,8 +543,8 @@
         <!-- Logo (always in corner) -->
         <button
             class="logo-button corner-logo"
-            onclick={resetView}
-            aria-label="Return to landing page"
+            onclick={handleLogoClick}
+            aria-label="Toggle welcome information"
         >
             <img
                 src="/logo-horizontal.svg"
@@ -2056,11 +2064,11 @@
             padding: 0.5rem 0.5rem 0.5rem 1.2rem;
         }
         .search-ticker {
-            font-size: 1.2rem !important;
+            font-size: 1rem !important;
             left: 3.25rem;
         }
         :global(.search-input) {
-            font-size: 1.2rem !important;
+            font-size: 1rem !important;
             padding: 0.7rem !important;
         }
         .search-container:not(.searched) :global(.search-button) {

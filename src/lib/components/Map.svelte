@@ -135,7 +135,7 @@
 			container: mapContainer,
 			style: "mapbox://styles/mapbox/dark-v11",
 			center: [20, 10], // Slightly adjusted for discovery view
-			zoom: 1.5,
+			zoom: isMobile ? 1.1 : 1.5,
 			pitch: 0,
 			bearing: 0,
 			projection: "globe",
@@ -635,7 +635,7 @@
 				// Move view to account for sidebar
 				map.easeTo({
 					center: [20, 10], // Center latitude for balanced view
-					zoom: isMobile ? 1.1 : 1.8, // Zoom out more on mobile to show all markers
+					zoom: isMobile ? 1.1 : 1.8, // Zoom level adjusted for balanced mobile view
 					padding: activePadding,
 					duration: 2000,
 				});
@@ -648,7 +648,7 @@
 					addFeaturedMarkers();
 					map!.easeTo({
 						center: [20, 10],
-						zoom: 1.8,
+						zoom: isMobile ? 1.1 : 1.8,
 						padding: activePadding,
 						duration: 2000,
 					});
