@@ -1,0 +1,18 @@
+{
+    "name": "Forklore",
+    "short_name": "Forklore",
+    "description": "Discover the fascinating journey of every dish across time and geography",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#020202",
+    "theme_color": "#020202",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/logo-horizontal.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}

@@ -1,3 +1,6 @@
-# allow crawling everything by default
+# Allow all crawlers
 User-agent: *
 Disallow:
+
+# Sitemap location
+Sitemap: https://forklore.io/sitemap.xml

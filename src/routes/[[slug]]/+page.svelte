@@ -515,11 +515,149 @@
 </script>
 
 <svelte:head>
-    <title>Forklore - Discover the History of Your Favorite Dishes</title>
-    <meta
-        name="description"
-        content="An AI-powered interactive map that traces the fascinating culinary history of dishes across the globe. Explore the origins and evolution of food."
-    />
+    {#if dishHistory}
+        <!-- Dynamic dish page SEO -->
+        <title>{dishHistory.name} - History & Origins | Forklore</title>
+        <meta
+            name="description"
+            content="{dishHistory.tagline}. Explore the fascinating {derivedStats()
+                .timeSpan} journey of {dishHistory.name} across {derivedStats()
+                .stops} locations spanning {derivedStats().distance}."
+        />
+
+        <!-- Open Graph / Facebook -->
+        <meta property="og:type" content="article" />
+        <meta
+            property="og:url"
+            content="https://forklore.io/{encodeURIComponent(
+                dishHistory.name.toLowerCase(),
+            )}"
+        />
+        <meta
+            property="og:title"
+            content="{dishHistory.name} - History & Origins | Forklore"
+        />
+        <meta
+            property="og:description"
+            content="{dishHistory.tagline}. Discover the {derivedStats()
+                .timeSpan} journey of this dish."
+        />
+        <meta property="og:image" content="https://forklore.io/og-image.png" />
+        <meta property="og:site_name" content="Forklore" />
+
+        <!-- Twitter Card -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+            name="twitter:url"
+            content="https://forklore.io/{encodeURIComponent(
+                dishHistory.name.toLowerCase(),
+            )}"
+        />
+        <meta
+            name="twitter:title"
+            content="{dishHistory.name} - History & Origins | Forklore"
+        />
+        <meta
+            name="twitter:description"
+            content="{dishHistory.tagline}. Discover the {derivedStats()
+                .timeSpan} journey of this dish."
+        />
+        <meta name="twitter:image" content="https://forklore.io/og-image.png" />
+
+        <!-- Canonical URL -->
+        <link
+            rel="canonical"
+            href="https://forklore.io/{encodeURIComponent(
+                dishHistory.name.toLowerCase(),
+            )}"
+        />
+
+        <!-- JSON-LD Structured Data for Recipe/Food -->
+        <script type="application/ld+json">
+            {JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "Article",
+                "headline": `${dishHistory.name} - History & Origins`,
+                "description": dishHistory.tagline,
+                "image": "https://forklore.io/og-image.png",
+                "author": {
+                    "@type": "Organization",
+                    "name": "Forklore"
+                },
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "Forklore",
+                    "logo": {
+                        "@type": "ImageObject",
+                        "url": "https://forklore.io/logo-horizontal.svg"
+                    }
+                },
+                "mainEntityOfPage": {
+                    "@type": "WebPage",
+                    "@id": `https://forklore.io/${encodeURIComponent(dishHistory.name.toLowerCase())}`
+                }
+            })}
+        </script>
+    {:else}
+        <!-- Homepage SEO -->
+        <title>Forklore - Discover the Journey of Every Dish</title>
+        <meta
+            name="description"
+            content="Explore the fascinating culinary history of dishes from around the world. An AI-powered interactive map that traces the origins and evolution of your favorite foods across time and geography."
+        />
+
+        <!-- Open Graph / Facebook -->
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://forklore.io/" />
+        <meta
+            property="og:title"
+            content="Forklore - Discover the Journey of Every Dish"
+        />
+        <meta
+            property="og:description"
+            content="Explore the fascinating culinary history of dishes from around the world. Trace the origins and evolution of your favorite foods."
+        />
+        <meta property="og:image" content="https://forklore.io/og-image.png" />
+        <meta property="og:site_name" content="Forklore" />
+
+        <!-- Twitter Card -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content="https://forklore.io/" />
+        <meta
+            name="twitter:title"
+            content="Forklore - Discover the Journey of Every Dish"
+        />
+        <meta
+            name="twitter:description"
+            content="Explore the fascinating culinary history of dishes from around the world."
+        />
+        <meta name="twitter:image" content="https://forklore.io/og-image.png" />
+
+        <!-- Canonical URL -->
+        <link rel="canonical" href="https://forklore.io/" />
+
+        <!-- JSON-LD Structured Data for Website -->
+        <script type="application/ld+json">
+            {JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                "name": "Forklore",
+                "description": "Discover the fascinating journey of every dish across time and geography",
+                "url": "https://forklore.io",
+                "potentialAction": {
+                    "@type": "SearchAction",
+                    "target": {
+                        "@type": "EntryPoint",
+                        "urlTemplate": "https://forklore.io/{search_term_string}"
+                    },
+                    "query-input": "required name=search_term_string"
+                }
+            })}
+        </script>
+    {/if}
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
 </svelte:head>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
