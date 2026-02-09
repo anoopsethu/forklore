@@ -2771,8 +2771,8 @@
         transform: translateX(-50%);
         background: rgba(40, 40, 40, 0.95);
         color: white;
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
         font-size: 0.9rem;
         font-weight: 500;
         z-index: 1000;
