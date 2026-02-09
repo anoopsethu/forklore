@@ -50,6 +50,7 @@
     let activeCardIndex = $state(-1);
     let mapRef = $state<any>(null);
     let showWelcomePopup = $state(false);
+    let showToast = $state(false);
 
     // Featured dishes state
     let featuredDishes = $state<FeaturedDish[]>([]);
@@ -199,6 +200,59 @@
         activeCardIndex = 0;
         scrollToCard(0);
         smoothProgress = 0;
+    }
+
+    // Share functionality - Web Share API on mobile only, clipboard on desktop
+    async function handleShare() {
+        if (!dishHistory) return;
+        const slug = encodeURIComponent(
+            dishHistory.name.toLowerCase().replace(/\s+/g, "-"),
+        );
+        const shareUrl = `https://forklore.io/${slug}`;
+
+        // Only use Web Share API on actual mobile devices (touch + small screen)
+        const isTouchDevice =
+            "ontouchstart" in window && window.innerWidth < 768;
+
+        if (isTouchDevice && navigator.share) {
+            try {
+                await navigator.share({
+                    title: `${dishHistory.name} - Forklore`,
+                    text: `Discover the history of ${dishHistory.name}`,
+                    url: shareUrl,
+                });
+                // Share completed successfully - no toast needed
+            } catch (err: any) {
+                // User cancelled share (AbortError) - don't show toast
+                // Only fall back to clipboard for actual errors
+                if (err.name !== "AbortError") {
+                    await copyToClipboard(shareUrl);
+                }
+            }
+        } else {
+            // Desktop: just copy to clipboard
+            await copyToClipboard(shareUrl);
+        }
+    }
+
+    async function copyToClipboard(text: string) {
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast = true;
+            setTimeout(() => (showToast = false), 2000);
+        } catch {
+            console.error("Failed to copy to clipboard");
+        }
+    }
+
+    // Skip to end - jump to last timeline event
+    function handleSkipToEnd() {
+        if (!dishHistory?.steps?.length) return;
+        const lastIndex = dishHistory.steps.length - 1;
+        if (isPlaying) handlePause();
+        activeCardIndex = lastIndex;
+        scrollToCard(lastIndex);
+        smoothProgress = 100;
     }
 
     // Handle click/tap on the progress bar to jump to a step
@@ -975,14 +1029,9 @@
                                 <span class="dish-emoji"
                                     >{dishHistory.emoji}</span
                                 >
-                                <div class="dish-title-stack">
-                                    <h1 class="dish-main-title">
-                                        {dishHistory.name}
-                                    </h1>
-                                    <p class="dish-tagline-text">
-                                        {dishHistory.tagline}
-                                    </p>
-                                </div>
+                                <h1 class="dish-main-title">
+                                    {dishHistory.name} - {dishHistory.tagline}
+                                </h1>
                             </div>
 
                             <!-- Stats Cards -->
@@ -1165,18 +1214,16 @@
                 <div class="playback-buttons">
                     <button
                         class="playback-btn"
-                        aria-label="Reset"
-                        onclick={handleReset}
+                        aria-label="Share this dish"
+                        onclick={handleShare}
                     >
-                        <Icon
-                            icon="material-symbols:restart-alt-rounded"
-                            width="24"
-                            height="24"
-                        />
+                        <Icon icon="mdi:share-variant" width="22" height="22" />
                     </button>
                     <button
                         class="playback-btn play-btn"
-                        aria-label={isPlaying ? "Pause" : "Play"}
+                        aria-label={isPlaying
+                            ? "Pause timeline"
+                            : "Play timeline"}
                         onclick={() =>
                             isPlaying ? handlePause() : handlePlay()}
                     >
@@ -1196,13 +1243,15 @@
                     </button>
                     <button
                         class="playback-btn"
-                        aria-label="Stop"
-                        onclick={handleStop}
+                        aria-label="Skip to most recent event"
+                        onclick={handleSkipToEnd}
+                        disabled={activeCardIndex ===
+                            (dishHistory?.steps?.length ?? 0) - 1}
                     >
                         <Icon
-                            icon="material-symbols:stop-rounded"
-                            width="24"
-                            height="24"
+                            icon="material-symbols:skip-next-rounded"
+                            width="26"
+                            height="26"
                         />
                     </button>
                 </div>
@@ -1219,6 +1268,14 @@
 
 {#if showWelcomePopup}
     <WelcomePopup onClose={handleWelcomeClose} />
+{/if}
+
+{#if showToast}
+    <div class="toast-notification" transition:fly={{ y: 20, duration: 200 }}>
+        {dishHistory?.emoji}
+        Link to
+        {dishHistory?.name} copied
+    </div>
 {/if}
 
 <style>
@@ -1367,20 +1424,13 @@
     .dish-emoji {
         font-size: 2.8rem;
         flex-shrink: 0;
+        line-height: 125%;
     }
 
     .dish-title-stack {
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
-    }
-
-    .dish-tagline-text {
-        color: rgba(255, 255, 255, 0.6);
-        font-size: 1.05rem;
-        font-weight: 400;
-        margin: 0;
-        line-height: 1.3;
     }
 
     .ai-footer {
@@ -1930,6 +1980,12 @@
         transform: scale(0.95);
     }
 
+    .playback-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
     /* Cards Panel */
     .cards-panel {
         position: absolute;
@@ -1965,16 +2021,16 @@
     /* New styles for searched state */
     .dish-header-section {
         display: flex;
-        align-items: center;
-        gap: 0.75rem;
+        align-items: flex-start;
+        gap: 0.8rem;
         margin-bottom: 1.5rem;
     }
 
     .dish-main-title {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
         font-weight: 600;
         color: white;
-        line-height: 1.3;
+        line-height: 1.4;
         margin: 0;
     }
 
@@ -2706,4 +2762,22 @@
     }
 
     /* Skeleton Animations */
+
+    /* Toast Notification */
+    .toast-notification {
+        position: fixed;
+        bottom: 120px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(40, 40, 40, 0.95);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        z-index: 1000;
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
 </style>
